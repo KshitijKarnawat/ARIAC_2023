@@ -24,11 +24,18 @@ namespace group3{
     class Assembly;
     class Combined;
 
-    class Order{
+    class Orders: public rclcpp::Node{
         std::string id;
         bool priority;
         int type;
-        Order(ariac_msgs::msg::Order order){
+
+        void order_listener_callback(ariac_msgs::msg::Order::SharedPtr msg);
+        
+        rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_listener;
+
+
+
+        Orders(ariac_msgs::msg::Order order): Node("test"){
             id = order.id;
             priority = order.priority;
             type = order.type;
@@ -41,15 +48,19 @@ namespace group3{
             else if (type == 2){
                 group3::Combined(order.combined_task);
             }
+
+        order_listener = this->create_subscription<ariac_msgs::msg::Order>("/ariac/Order", 10, std::bind(&Orders::order_listener_callback, this, std::placeholders::_1));
+
         }
-        ~Order(){}
+        
+        ~Orders(){}
     };
 
-    class Kitting: private Order{
+    class Kitting: private Orders{
         int agv_id;
         int tray_id;
         int destination;
-        int part[3];    // 0-color, 1-type, 2-quadrant
+        std::array<int, 3> part;    // 0-color, 1-type, 2-quadrant
         std::vector<std::array<int, 3>> parts;
 
         Kitting(ariac_msgs::msg::KittingTask kitting){
@@ -59,14 +70,14 @@ namespace group3{
             for(int i = 0; i < kitting.parts.size(); i++){
                 part[0] = kitting.parts[i].part.color;
                 part[1] = kitting.parts[i].part.type;
-                part[2] = kitting.parts[i].part.quadrant;
+                part[2] = kitting.parts[i].quadrant;
                 parts.push_back(part);
             }
         }
         ~Kitting(){}
     };
 
-    class Assembly: private Order{
+    class Assembly: private Orders{
         std::vector<int> agv_numbers;
         int station;
         struct part{
@@ -92,7 +103,7 @@ namespace group3{
         ~Assembly(){}
     };
 
-    class Combined: private Order{
+    class Combined: private Orders{
         int station;
         struct part{
             int type;
