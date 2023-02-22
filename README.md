@@ -9,7 +9,7 @@ The course will focus on the development of a simulation-based control system th
 - Adarsh Malapaka (UID: 118119625)
 - Tanmay Haldankar (UID: 119175460)
 - Sahruday Patti (UID: 118218366)
-- Kshitij Karnawat
+- Kshitij Karnawat (UID: 119188651)
 # Dependencies
 - [ROS2(Galactic)](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html)
 - [ARIAC 2023 Workspace](https://github.com/usnistgov/ARIAC)
@@ -20,7 +20,7 @@ The course will focus on the development of a simulation-based control system th
 source /opt/ros/galactic/setup.bash
 source <Your workspace>/install/setup.bash
 cd <Your ROS2 workspace src folder>
-git clone git@github.com:Sanchitkedia/ARIAC_2023.git group3
+git clone https://github.com/Sanchitkedia/ARIAC_2023.git group3
 cd ..
 rosdep update --include-eol-distros
 rosdep install --from-paths src -y --ignore-src

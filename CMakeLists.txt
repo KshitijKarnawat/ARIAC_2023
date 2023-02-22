@@ -26,6 +26,13 @@ include
 DESTINATION share/${PROJECT_NAME}
 )
 
+find_package(ariac REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
+include_directories(include/group3)
+install(DIRECTORY include DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
