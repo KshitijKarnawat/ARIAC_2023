@@ -9,7 +9,7 @@ The course will focus on the development of a simulation-based control system th
 - Adarsh Malapaka
 - Tanmay Haldankar
 - Sahruday Patti
-- Kshitij Karnawat
+- Kshitij Karnawat (UID: 119188651)
 # Dependencies
 - [ROS2(Galactic)](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html)
 - [ARIAC 2023 Workspace](https://github.com/usnistgov/ARIAC)
