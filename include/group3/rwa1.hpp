@@ -20,6 +20,10 @@
 
 namespace group3{
 
+    class Kitting;
+    class Assembly;
+    class Combined;
+
     class Order{
         std::string id;
         bool priority;
@@ -29,13 +33,13 @@ namespace group3{
             priority = order.priority;
             type = order.type;
             if (type == 0){
-                Kitting(order.kitting);
+                group3::Kitting(order.kitting_task);
             }
             else if (type == 1){
-                Assembly(order.assembly);
+                group3::Assembly(order.assembly_task);
             }
             else if (type == 2){
-                Combined(order.combined);
+                group3::Combined(order.combined_task);
             }
         }
         ~Order(){}
@@ -49,13 +53,13 @@ namespace group3{
         std::vector<std::array<int, 3>> parts;
 
         Kitting(ariac_msgs::msg::KittingTask kitting){
-            agv_id = kitting.agv_number
+            agv_id = kitting.agv_number;
             tray_id = kitting.tray_id;
             destination = kitting.destination;
             for(int i = 0; i < kitting.parts.size(); i++){
-                part[0] = kitting.parts[i].color;
-                part[1] = kitting.parts[i].type;
-                part[2] = kitting.parts[i].quadrant;
+                part[0] = kitting.parts[i].part.color;
+                part[1] = kitting.parts[i].part.type;
+                part[2] = kitting.parts[i].part.quadrant;
                 parts.push_back(part);
             }
         }
@@ -69,42 +73,44 @@ namespace group3{
             int type;
             int color;
             geometry_msgs::msg::PoseStamped assembled_pose;
-            geometry_msgs::msg::Vector3 assembly_dir;
+            geometry_msgs::msg::Vector3 install_direction;
         };
+        part part_var;
         std::vector<part> parts;
 
         Assembly(ariac_msgs::msg::AssemblyTask assembly){
-            agv_id = assembly.agv_numbers;
-            station_id = assembly.station;
+            agv_numbers = assembly.agv_numbers;
+            station = assembly.station;
             for(int i = 0; i < assembly.parts.size(); i++){
-                part.type = assembly.parts[i].type;
-                part.color = assembly.parts[i].color;
-                part.assembled_pose = assembly.parts[i].assembled_pose;
-                part.assembly_dir = assembly.parts[i].assembly_dir;
-                parts.push_back(part);
+                part_var.type = assembly.parts[i].part.type;
+                part_var.color = assembly.parts[i].part.color;
+                part_var.assembled_pose = assembly.parts[i].assembled_pose;
+                part_var.install_direction = assembly.parts[i].install_direction;
+                parts.push_back(part_var);
             }
         }
         ~Assembly(){}
     };
 
     class Combined: private Order{
-        int station_id;
+        int station;
         struct part{
             int type;
             int color;
             geometry_msgs::msg::PoseStamped assembled_pose;
-            geometry_msgs::msg::Vector3 assembly_dir;
+            geometry_msgs::msg::Vector3 install_direction;
         };
+        part part_var;
         std::vector<part> parts;
 
         Combined(ariac_msgs::msg::CombinedTask combined){
-            station_id = combined.station_id;
+            station = combined.station;
             for(int i = 0; i < combined.parts.size(); i++){
-                part.type = combined.parts[i].type;
-                part.color = combined.parts[i].color;
-                part.assembled_pose = combined.parts[i].assembled_pose;
-                part.assembly_dir = combined.parts[i].assembly_dir;
-                parts.push_back(part);
+                part_var.type = combined.parts[i].part.type;
+                part_var.color = combined.parts[i].part.color;
+                part_var.assembled_pose = combined.parts[i].assembled_pose;
+                part_var.install_direction = combined.parts[i].install_direction;
+                parts.push_back(part_var);
             }
         }
         ~Combined(){}
