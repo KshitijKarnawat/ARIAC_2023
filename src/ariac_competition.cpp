@@ -17,13 +17,7 @@ void AriacCompetition::competition_state_cb( const ariac_msgs::msg::CompetitionS
 
     auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
 
-    auto result =client->async_send_request(request);
-    result.wait();
-
-    if (result.get()->success)
-    {
-      RCLCPP_INFO_STREAM(this->get_logger(), "Success");
-    }
+    client->async_send_request(request);
 }
  
 }
@@ -35,8 +29,6 @@ int main(int argc, char *argv[])
   auto ariac_competition  = std::make_shared<AriacCompetition>("RWA1");
   // Start Competition
   rclcpp::spin(ariac_competition);
-
-
   rclcpp::shutdown();
 
 }
