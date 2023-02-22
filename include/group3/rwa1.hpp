@@ -1,54 +1,51 @@
 #pragma once
-#include<iostream>
-#include<rclcpp/rclcpp.hpp>
-#include<string>
-#include<vector>
-#include<memory>
+#include <cstdint>
+#include <iostream>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <array>
+#include <vector>
+#include <memory>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 
 namespace group3{
 
     class Order{
         std::string id;
-        int tray_id;
-        std::string type;
+        bool priority;
+        int type;
     };
 
     class Kitting: private Order{
-        int agv_number;
+        int agv_id;
         int tray_id;
         int destination;
-        struct part{
-            std::string type;
-            std::string color;
-            int quadrant;
-        };
-        std::vector<part> parts;
-        
+        int part[3];    // 0-color, 1-type, 2-quadrant
+        std::vector<std::array<int, 3>> parts;
     };
 
     class Assembly: private Order{
-        int agv_number;
-        int tray_id;
-        int destination;
+        int agv_id;
+        int station_id;
         struct part{
-            std::string type;
-            std::string color;
-            int quadrant;
+            int type;
+            int color;
+            geometry_msgs::msg::PoseStamped assembled_pose;
+            geometry_msgs::msg::Vector3 assembly_dir;
         };
         std::vector<part> parts;
-        
     };
 
     class Combined: private Order{
-        int agv_number;
-        int tray_id;
-        int destination;
+        int station_id;
         struct part{
-            std::string type;
-            std::string color;
-            int quadrant;
+            int type;
+            int color;
+            geometry_msgs::msg::PoseStamped assembled_pose;
+            geometry_msgs::msg::Vector3 assembly_dir;
         };
         std::vector<part> parts;
-
     };
+    
 }
