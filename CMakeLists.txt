@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(ariac_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
@@ -18,7 +19,7 @@ include_directories(include/group3)
 install(DIRECTORY include DESTINATION share/${PROJECT_NAME})
 
 add_executable(start src/ariac_competition.cpp)
-ament_target_dependencies(start rclcpp ariac_msgs)
+ament_target_dependencies(start rclcpp ariac_msgs std_srvs)
 
 install(TARGETS
   start

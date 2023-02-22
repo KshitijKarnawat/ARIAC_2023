@@ -16,7 +16,6 @@ class AriacCompetition : public rclcpp::Node
         competition_state_sub_ = this->create_subscription<ariac_msgs::msg::CompetitionState>("/ariac/competition_state", 10, 
         std::bind(&AriacCompetition::competition_state_cb, this, std::placeholders::_1));
     }
-    ~AriacCompetition();
  
  private:
     rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr competition_state_sub_;
