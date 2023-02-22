@@ -6,9 +6,9 @@ The course will focus on the development of a simulation-based control system th
 
 ## Team Members
 - Sanchit Kedia (UID: 119159620) 
-- Adarsh Malapaka
-- Tanmay Haldankar
-- Sahruday Patti
+- Adarsh Malapaka (UID: 118119625)
+- Tanmay Haldankar (UID: 119175460)
+- Sahruday Patti (UID: 118218366)
 - Kshitij Karnawat
 # Dependencies
 - [ROS2(Galactic)](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html)
