@@ -20,7 +20,7 @@ void AriacCompetition::end_competition_timer_callback() {
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"),
-                  "client returned result %d",
+                  "end_trigger_client returned result %d",
                   result.get()->success);
     }
     else
@@ -54,7 +54,7 @@ void AriacCompetition::competition_state_cb( const ariac_msgs::msg::CompetitionS
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"),
-                  "client returned result %d",
+                  "start_trigger_client returned result %d",
                   result.get()->success);
     }
     else
