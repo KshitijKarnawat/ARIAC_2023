@@ -18,66 +18,24 @@
 #include <ariac_msgs/msg/kitting_part.hpp>
 #include <ariac_msgs/msg/assembly_part.hpp>
 
-namespace group3{
+class Orders: public rclcpp::Node{
 
-    class Kitting;
-    class Assembly;
-    class Combined;
-
-    class Orders: public rclcpp::Node{
-        std::string id;
-        bool priority;
-        int type;
-
-        void order_listener_callback(ariac_msgs::msg::Order::SharedPtr msg);
-        
-        rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_listener;
-
-
-
-        Orders(ariac_msgs::msg::Order order): Node("test"){
-            id = order.id;
-            priority = order.priority;
-            type = order.type;
-            if (type == 0){
-                group3::Kitting(order.kitting_task);
-            }
-            else if (type == 1){
-                group3::Assembly(order.assembly_task);
-            }
-            else if (type == 2){
-                group3::Combined(order.combined_task);
-            }
-
-        order_listener = this->create_subscription<ariac_msgs::msg::Order>("/ariac/Order", 10, std::bind(&Orders::order_listener_callback, this, std::placeholders::_1));
-
-        }
-        
-        ~Orders(){}
-    };
-
-    class Kitting: private Orders{
+ private:
+    std::string id;
+    bool priority;
+    int type;
+    
+    struct KittingTask{
         int agv_id;
         int tray_id;
         int destination;
         std::array<int, 3> part;    // 0-color, 1-type, 2-quadrant
-        std::vector<std::array<int, 3>> parts;
-
-        Kitting(ariac_msgs::msg::KittingTask kitting){
-            agv_id = kitting.agv_number;
-            tray_id = kitting.tray_id;
-            destination = kitting.destination;
-            for(int i = 0; i < kitting.parts.size(); i++){
-                part[0] = kitting.parts[i].part.color;
-                part[1] = kitting.parts[i].part.type;
-                part[2] = kitting.parts[i].quadrant;
-                parts.push_back(part);
-            }
-        }
-        ~Kitting(){}
+        std::vector<std::array<int, 3>> parts_kit;
     };
 
-    class Assembly: private Orders{
+    KittingTask KittingTask_var;
+
+    struct AssemblyTask{
         std::vector<int> agv_numbers;
         int station;
         struct part{
@@ -87,23 +45,12 @@ namespace group3{
             geometry_msgs::msg::Vector3 install_direction;
         };
         part part_var;
-        std::vector<part> parts;
-
-        Assembly(ariac_msgs::msg::AssemblyTask assembly){
-            agv_numbers = assembly.agv_numbers;
-            station = assembly.station;
-            for(int i = 0; i < assembly.parts.size(); i++){
-                part_var.type = assembly.parts[i].part.type;
-                part_var.color = assembly.parts[i].part.color;
-                part_var.assembled_pose = assembly.parts[i].assembled_pose;
-                part_var.install_direction = assembly.parts[i].install_direction;
-                parts.push_back(part_var);
-            }
-        }
-        ~Assembly(){}
+        std::vector<part> parts_assm;
     };
 
-    class Combined: private Orders{
+    AssemblyTask AssemblyTask_var;
+
+    struct CombinedTask{
         int station;
         struct part{
             int type;
@@ -112,19 +59,20 @@ namespace group3{
             geometry_msgs::msg::Vector3 install_direction;
         };
         part part_var;
-        std::vector<part> parts;
-
-        Combined(ariac_msgs::msg::CombinedTask combined){
-            station = combined.station;
-            for(int i = 0; i < combined.parts.size(); i++){
-                part_var.type = combined.parts[i].part.type;
-                part_var.color = combined.parts[i].part.color;
-                part_var.assembled_pose = combined.parts[i].assembled_pose;
-                part_var.install_direction = combined.parts[i].install_direction;
-                parts.push_back(part_var);
-            }
-        }
-        ~Combined(){}
+        std::vector<part> parts_comb;
     };
-    
-}
+
+    CombinedTask CombinedTask_var;
+
+    ariac_msgs::msg::Order order_;
+    rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber;
+
+    // methods
+    void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
+
+ public:
+
+    Orders(std::string node_name) : Node(node_name) {
+        order_subscriber = this->create_subscription<ariac_msgs::msg::Order>("/ariac/orders", 10, std::bind(&Orders::order_callback, this, std::placeholders::_1));
+    }
+};

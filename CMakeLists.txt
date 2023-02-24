@@ -21,8 +21,12 @@ install(DIRECTORY include DESTINATION share/${PROJECT_NAME})
 add_executable(start src/ariac_competition.cpp)
 ament_target_dependencies(start rclcpp ariac_msgs std_srvs)
 
+add_executable(rwa1 src/rwa1.cpp)
+ament_target_dependencies(rwa1 rclcpp ariac_msgs geometry_msgs std_srvs)
+
 install(TARGETS
   start
+  rwa1
   DESTINATION lib/${PROJECT_NAME}
 )
 
