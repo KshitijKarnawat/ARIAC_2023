@@ -12,6 +12,7 @@ class AriacCompetition : public rclcpp::Node
 {
  public:
     unsigned int competition_state_;
+    unsigned int submit_orders_ = 0;
     AriacCompetition(std::string node_name) : Node(node_name)
     {
         competition_state_sub_ = this->create_subscription<ariac_msgs::msg::CompetitionState>("/ariac/competition_state", 10, 

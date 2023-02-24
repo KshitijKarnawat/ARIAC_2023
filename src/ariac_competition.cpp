@@ -1,7 +1,7 @@
 #include "ariac_competition.hpp"
 
 void AriacCompetition::end_competition_timer_callback() {
-  if (competition_state_ == 3) {
+  if (competition_state_ == 3 && submit_orders_ == 1) {
     std::string srv_name = "/ariac/end_competition";
 
     std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("end_trigger_client");
