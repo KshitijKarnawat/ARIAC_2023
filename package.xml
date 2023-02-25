@@ -5,17 +5,22 @@
   <version>0.0.0</version>
   <description>ENPM 663 ARIAC Project Package Group 3</description>
   <maintainer email="sanchit@terpmail.umd.edu">Sanchit Kedia</maintainer>
-  <maintainer email="TODO@terpmail.umd.edu">Adarsh Malapaka</maintainer>
-  <maintainer email="TODO@terpmail.umd.edu">Tanmay Haldankar</maintainer>
-  <maintainer email="TODO@terpmail.umd.edu">Sahruday Patti</maintainer>
-  <maintainer email="TODO@terpmail.umd.edu">Kshitij Karnawat</maintainer>
+  <maintainer email="amalapak@terpmail.umd.edu">Adarsh Malapaka</maintainer>
+  <maintainer email="tanmayh@terpmail.umd.edu">Tanmay Haldankar</maintainer>
+  <maintainer email="sahruday@umd.edu">Sahruday Patti</maintainer>
+  <maintainer email="kshitij@umd.edu">Kshitij Karnawat</maintainer>
 
-  <license>TODO: License declaration</license>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
+  <depend>ariac_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>geometry_msgs</depend>
+
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -9,6 +9,21 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
+find_package(ariac_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
+include_directories(include/group3)
+install(DIRECTORY include DESTINATION share/${PROJECT_NAME})
+
+add_executable(rwa1 src/ariac_competition.cpp)
+ament_target_dependencies(rwa1 rclcpp ariac_msgs std_srvs geometry_msgs std_msgs)
+
+install(TARGETS
+  rwa1
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
