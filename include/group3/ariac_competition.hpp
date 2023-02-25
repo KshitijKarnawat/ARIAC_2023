@@ -1,126 +1,173 @@
+/**
+ * @copyright Copyright (c) 2023
+ * @file ariac_competition.hpp
+ * @author Sanchit Kedia (sanchit@terpmail.umd.edu)
+ * @author Adarsh Malapaka (amalapak@terpmail.umd.edu)
+ * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
+ * @author Sahruday Patti (sahruday@umd.edu)
+ * @author Kshitij Karnawat (kshitij@umd.edu)
+ * @brief Class Definitions of RWA1 for ARIAC 2023 (Group 3)
+ * @version 0.1
+ * @date 2023-02-25
+ * 
+ * 
+ */
+
 #pragma once
 
-#include <rclcpp/qos.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <unistd.h>
 
+#include <array>
 #include <cstdint>
 #include <iostream>
-#include <typeinfo>
-#include <chrono>
-#include <unistd.h>
-#include <string>
-#include <array>
-#include <vector>
-#include <queue>
 #include <memory>
+#include <queue>
+#include <string>
+#include <typeinfo>
+#include <vector>
+#include <chrono>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
-
-#include <std_srvs/srv/trigger.hpp>
-
-#include <ariac_msgs/msg/order.hpp>
-#include <ariac_msgs/msg/competition_state.hpp>
-#include <ariac_msgs/msg/part.hpp>
-#include <ariac_msgs/msg/assembly_task.hpp>
-#include <ariac_msgs/msg/kitting_task.hpp>
-#include <ariac_msgs/msg/combined_task.hpp>
-#include <ariac_msgs/msg/kitting_part.hpp>
 #include <ariac_msgs/msg/assembly_part.hpp>
-
+#include <ariac_msgs/msg/assembly_task.hpp>
+#include <ariac_msgs/msg/combined_task.hpp>
+#include <ariac_msgs/msg/competition_state.hpp>
+#include <ariac_msgs/msg/kitting_part.hpp>
+#include <ariac_msgs/msg/kitting_task.hpp>
+#include <ariac_msgs/msg/order.hpp>
+#include <ariac_msgs/msg/part.hpp>
 #include <ariac_msgs/srv/submit_order.hpp>
-
+#include <rclcpp/qos.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
-using namespace std::chrono_literals;
-
 unsigned int competition_state_;
-class AriacCompetition : public rclcpp::Node
-{
+
+/**
+ * @brief Class definition for ARIAC Competition
+ * 
+ */
+class AriacCompetition : public rclcpp::Node {
  public:
-    
-    unsigned int submit_orders_ = 0;
-    AriacCompetition(std::string node_name) : Node(node_name)
-    {
-        competition_state_sub_ = this->create_subscription<ariac_msgs::msg::CompetitionState>("/ariac/competition_state", 10, 
-        std::bind(&AriacCompetition::competition_state_cb, this, std::placeholders::_1));
+  unsigned int submit_orders_ = 0;
 
-        // this->declare_parameter("publishing_interval", 2);
-        // rclcpp::Parameter pub_frequency = this->get_parameter("publishing_interval");
+  /**
+   * @brief Construct a new Ariac Competition object
+   * 
+   * @param node_name Name of the node
+   */
+  AriacCompetition(std::string node_name) : Node(node_name) {
+    competition_state_sub_ =
+        this->create_subscription<ariac_msgs::msg::CompetitionState>(
+            "/ariac/competition_state", 10,
+            std::bind(&AriacCompetition::competition_state_cb, this,
+                      std::placeholders::_1));
 
-        end_competition_timer_ = this->create_wall_timer(100ms, std::bind(&AriacCompetition::end_competition_timer_callback, this));
+    end_competition_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(100),
+        std::bind(&AriacCompetition::end_competition_timer_callback, this));
 
-        order_subscriber = this->create_subscription<ariac_msgs::msg::Order>("/ariac/orders", 10, std::bind(&AriacCompetition::order_callback, this, std::placeholders::_1));
-    }
+    order_subscriber_ = this->create_subscription<ariac_msgs::msg::Order>(
+        "/ariac/orders", 10,
+        std::bind(&AriacCompetition::order_callback, this,
+                  std::placeholders::_1));
+  }
 
- 
  private:
-    rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr competition_state_sub_;
+  rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
+      competition_state_sub_;
 
-    rclcpp::TimerBase::SharedPtr end_competition_timer_;
-    
-    ariac_msgs::msg::Order order_;
+  rclcpp::TimerBase::SharedPtr end_competition_timer_;
 
-    rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber;
+  ariac_msgs::msg::Order order_;
 
-    void competition_state_cb(const ariac_msgs::msg::CompetitionState::ConstSharedPtr msg);
+  rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber_;
 
-    void end_competition_timer_callback();
+  /**
+   * @brief Callback function for competition state subscriber and to start competition
+   * 
+   * @param msg CompetitionState message 
+   */
+  void competition_state_cb(
+      const ariac_msgs::msg::CompetitionState::ConstSharedPtr msg);
 
-    void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
+  /**
+   * @brief Callback function to end the competition
+   * 
+   */
+  void end_competition_timer_callback();
 
-    void submit_order(std::string order_id);
+  /**
+   * @brief Callback function to store the orders
+   * 
+   * @param msg Order
+   */
+  void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
 
+  /**
+   * @brief Method to submit the orders
+   * 
+   * @param order_id Order ID
+   */
+  void submit_order(std::string order_id);
 };
 
+/**
+ * @brief Class Definition to store Kitting, Assembly and Combined orders
+ * 
+ */
 class Orders {
-
  public:
-    std::string id;
-    bool priority;
-    int type;
-    
-    struct KittingTask{
-        int agv_id;
-        int tray_id;
-        int destination;
-        std::array<int, 3> part;    // 0-color, 1-type, 2-quadrant
-        std::vector<std::array<int, 3>> parts_kit;
+  std::string id;
+  bool priority;
+  int type;
+
+  struct KittingTask {
+    int agv_id;
+    int tray_id;
+    int destination;
+    std::array<int, 3> part;  // 0-color, 1-type, 2-quadrant
+    std::vector<std::array<int, 3>> parts_kit;
+  };
+
+  KittingTask KittingTask_var;
+
+  struct AssemblyTask {
+    std::vector<int> agv_numbers;
+    int station;
+    struct part {
+      int type;
+      int color;
+      geometry_msgs::msg::PoseStamped assembled_pose;
+      geometry_msgs::msg::Vector3 install_direction;
     };
+    part part_var;
+    std::vector<part> parts_assm;
+  };
 
-    KittingTask KittingTask_var;
+  AssemblyTask AssemblyTask_var;
 
-    struct AssemblyTask{
-        std::vector<int> agv_numbers;
-        int station;
-        struct part{
-            int type;
-            int color;
-            geometry_msgs::msg::PoseStamped assembled_pose;
-            geometry_msgs::msg::Vector3 install_direction;
-        };
-        part part_var;
-        std::vector<part> parts_assm;
+  struct CombinedTask {
+    int station;
+    struct part {
+      int type;
+      int color;
+      geometry_msgs::msg::PoseStamped assembled_pose;
+      geometry_msgs::msg::Vector3 install_direction;
     };
+    part part_var;
+    std::vector<part> parts_comb;
+  };
 
-    AssemblyTask AssemblyTask_var;
+  CombinedTask CombinedTask_var;
 
-    struct CombinedTask{
-        int station;
-        struct part{
-            int type;
-            int color;
-            geometry_msgs::msg::PoseStamped assembled_pose;
-            geometry_msgs::msg::Vector3 install_direction;
-        };
-        part part_var;
-        std::vector<part> parts_comb;
-    };
-
-    CombinedTask CombinedTask_var;
-
-    Orders();
-
+  /**
+   * @brief Construct a new Orders object
+   * 
+   */
+  Orders();
 };
 
 std::vector<Orders> orders;
