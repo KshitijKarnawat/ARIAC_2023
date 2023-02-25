@@ -31,3 +31,30 @@ rosdep update --include-eol-distros
 rosdep install --from-paths src -y --ignore-src
 colcon build --packages-select group3
 ```
+
+## Run Package
+
+```sh
+source /opt/ros/galactic/setup.bash
+source <Your workspace>/install/setup.bash
+ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa1
+ros2 run group3 rwa1
+```
+
+## Package Structure
+
+```txt
+.
+├── CMakeLists.txt
+├── group3
+│   └── _init_py
+├── include
+│   └── group3
+│       └── ariac_competition.hpp
+├── nodes
+├── package.xml
+├── LICENSE.md
+├── README.md
+└── src
+    └── ariac_competition.cpp
+```
