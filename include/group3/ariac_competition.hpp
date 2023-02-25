@@ -34,10 +34,11 @@
 
 using namespace std::chrono_literals;
 
+unsigned int competition_state_;
 class AriacCompetition : public rclcpp::Node
 {
  public:
-    unsigned int competition_state_;
+    
     unsigned int submit_orders_ = 0;
     AriacCompetition(std::string node_name) : Node(node_name)
     {

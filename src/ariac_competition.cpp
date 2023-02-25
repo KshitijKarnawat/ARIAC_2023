@@ -3,32 +3,32 @@
 Orders::Orders(void){}
 
 void AriacCompetition::end_competition_timer_callback() {
+  
   if (competition_state_ == 3 && submit_orders_ == 1) {
     std::string srv_name = "/ariac/end_competition";
 
     std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("end_trigger_client");
-    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client = node->create_client<std_srvs::srv::Trigger>(srv_name);;
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client = node->create_client<std_srvs::srv::Trigger>(srv_name);
 
     auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
 
     while (!client->wait_for_service(1s)) {
       if (!rclcpp::ok()) {
-        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+        RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
       }
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+      RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
     }
 
     auto result = client->async_send_request(request);
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"),
-                  "end_trigger_client returned result %d",
-                  result.get()->success);
+      RCLCPP_INFO(this->get_logger(),"Ending Competition");
+      rclcpp::shutdown();
     }
     else
     {
       RCLCPP_ERROR_STREAM(
-        rclcpp::get_logger("rclcpp"), "Failed to call trigger service");
+        this->get_logger(), "Failed to call trigger service");
     }
   }
 }
@@ -37,6 +37,7 @@ void AriacCompetition::end_competition_timer_callback() {
 
 void AriacCompetition::competition_state_cb( const ariac_msgs::msg::CompetitionState::ConstSharedPtr msg)  {
   competition_state_ = msg->competition_state;
+  
   if (msg->competition_state == ariac_msgs::msg::CompetitionState::READY) {
     std::string srv_name = "/ariac/start_competition";
 
@@ -47,24 +48,38 @@ void AriacCompetition::competition_state_cb( const ariac_msgs::msg::CompetitionS
 
     while (!client->wait_for_service(1s)) {
     if (!rclcpp::ok()) {
-      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+      RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
     }
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+    RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
   }
 
     auto result = client->async_send_request(request);
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"),
-                  "start_trigger_client returned result %d",
-                  result.get()->success);
+      RCLCPP_INFO(this->get_logger(),"Starting Competition");
     }
     else
     {
       RCLCPP_ERROR_STREAM(
-        rclcpp::get_logger("rclcpp"), "Failed to call trigger service");
+        this->get_logger(), "Failed to call trigger service");
     }
   }
+  // RCLCPP_INFO_STREAM(this->get_logger(), "Competition State " << competition_state_);
+  if (competition_state_ == 3) {
+      for (auto i = 0; i < 3; i++) {
+          if (orders[i].type == 0) {
+            RCLCPP_INFO(this->get_logger(), "Submitting order: %s", orders[i].id.c_str());
+            submit_order(orders[i].id.c_str());
+          }
+          else if (orders[i].type == 1) {
+            RCLCPP_INFO(this->get_logger(), "This is an Assembly order; Order ID: %s", orders[i].id.c_str());
+          }
+          else if (orders[i].type == 2) {
+            RCLCPP_INFO(this->get_logger(), "This is a Combined order; Order ID: %s", orders[i].id.c_str());
+          }
+      }
+      submit_orders_ = 1;
+    }
 }
 
 void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg){
@@ -142,22 +157,8 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg){
             
         }
     }
-    
-    if (orders.size() == 3) {
-        for (auto i = 0; i < 3; i++) {
-            if (orders[i].type == 0) {
-              RCLCPP_INFO(this->get_logger(), "Submitting order: %s", orders[i].id.c_str());
-              submit_order(orders[i].id.c_str());
-            }
-            else if (orders[i].type == 1) {
-              RCLCPP_INFO(this->get_logger(), "This is a Assembly order; Order ID: %s", orders[i].id.c_str());
-            }
-            else if (orders[i].type == 2) {
-              RCLCPP_INFO(this->get_logger(), "This is a Combined order; Order ID: %s", orders[i].id.c_str());
-            }
-        }
-        submit_orders_ = 1;
-    }
+    //Modify to submit orders as you receive
+  
     // RCLCPP_INFO(this->get_logger(), "Order ID: %s", order.id.c_str());
 }
 
@@ -165,7 +166,7 @@ void AriacCompetition::submit_order(std::string order_id)
 {
     std::string srv_name = "/ariac/submit_order";
 
-    std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("end_trigger_client");
+    std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("submit_order_client");
     rclcpp::Client<ariac_msgs::srv::SubmitOrder>::SharedPtr client = node->create_client<ariac_msgs::srv::SubmitOrder>(srv_name);;
 
     auto request = std::make_shared<ariac_msgs::srv::SubmitOrder::Request>();
@@ -173,18 +174,18 @@ void AriacCompetition::submit_order(std::string order_id)
 
     while (!client->wait_for_service(1s)) {
       if (!rclcpp::ok()) {
-        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+        RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
       }
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+      RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
     }
 
     auto result = client->async_send_request(request);
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"),"",result.get()->message);
+      RCLCPP_INFO_STREAM(this->get_logger(), result.get()->message);
     }
     else {
-      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service submit_order");
+      RCLCPP_ERROR(this->get_logger(), "Failed to call service submit_order");
     }
 }
 
@@ -195,6 +196,6 @@ int main(int argc, char *argv[])
   auto ariac_competition  = std::make_shared<AriacCompetition>("RWA1");
   // Start Competition
   rclcpp::spin(ariac_competition);
-  rclcpp::shutdown();
+  
 
 }
