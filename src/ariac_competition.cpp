@@ -41,7 +41,7 @@ void AriacCompetition::end_competition_timer_callback() {
 
     if (rclcpp::spin_until_future_complete(node, result) ==
         rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO_STREAM(this->get_logger(), "Ending Competition");
+      RCLCPP_INFO_STREAM(this->get_logger(), "All Orders Submitted and Ending Competition");
       rclcpp::shutdown();
     } else {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
@@ -86,16 +86,18 @@ void AriacCompetition::competition_state_cb(
     for (auto i = 0; i < 3; i++) {
       if (orders[i].type == 0) {
         RCLCPP_INFO_STREAM(this->get_logger(),
-                           "Submitting order: " << orders[i].id.c_str());
+                           "Submitting a Kitting order; Order ID: " << orders[i].id.c_str());
         submit_order(orders[i].id.c_str());
       } else if (orders[i].type == 1) {
         RCLCPP_INFO_STREAM(
             this->get_logger(),
-            "This is an Assembly order; Order ID: " << orders[i].id.c_str());
+            "Submitting an Assembly order; Order ID: " << orders[i].id.c_str());
+        submit_order(orders[i].id.c_str());
       } else if (orders[i].type == 2) {
         RCLCPP_INFO_STREAM(
             this->get_logger(),
-            "This is a Combined order; Order ID: " << orders[i].id.c_str());
+            "Submitting a Combined order; Order ID: " << orders[i].id.c_str());
+        submit_order(orders[i].id.c_str());
       }
     }
     submit_orders_ = 1;
@@ -191,7 +193,7 @@ void AriacCompetition::submit_order(std::string order_id) {
 
   if (rclcpp::spin_until_future_complete(node, result) ==
       rclcpp::FutureReturnCode::SUCCESS) {
-    RCLCPP_INFO_STREAM(this->get_logger(), result.get()->message);
+    RCLCPP_INFO_STREAM(this->get_logger(),"submit_order_client response: " << result.get()->success << "\t" << result.get()->message);
   } else {
     RCLCPP_ERROR(this->get_logger(), "Failed to call service submit_order");
   }
