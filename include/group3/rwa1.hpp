@@ -5,6 +5,7 @@
 #include <string>
 #include <array>
 #include <vector>
+#include <queue>
 #include <memory>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
@@ -18,9 +19,24 @@
 #include <ariac_msgs/msg/kitting_part.hpp>
 #include <ariac_msgs/msg/assembly_part.hpp>
 
-class Orders: public rclcpp::Node{
+class OrderNode: public rclcpp::Node {
+    ariac_msgs::msg::Order order_;
+    rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber;
 
- private:
+    // methods
+    void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
+
+ public:
+
+    OrderNode(std::string node_name) : Node(node_name) {
+        order_subscriber = this->create_subscription<ariac_msgs::msg::Order>("/ariac/orders", 10, std::bind(&OrderNode::order_callback, this, std::placeholders::_1));
+    }
+
+};
+
+class Orders {
+
+ public:
     std::string id;
     bool priority;
     int type;
@@ -64,15 +80,8 @@ class Orders: public rclcpp::Node{
 
     CombinedTask CombinedTask_var;
 
-    ariac_msgs::msg::Order order_;
-    rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber;
+    Orders();
 
-    // methods
-    void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
-
- public:
-
-    Orders(std::string node_name) : Node(node_name) {
-        order_subscriber = this->create_subscription<ariac_msgs::msg::Order>("/ariac/orders", 10, std::bind(&Orders::order_callback, this, std::placeholders::_1));
-    }
 };
+
+std::vector<Orders> orders;
