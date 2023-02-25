@@ -145,9 +145,18 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg){
     
     if (orders.size() == 3) {
         for (auto i = 0; i < 3; i++) {
-            RCLCPP_INFO(this->get_logger(), "Submitting order: %s", orders[i].id.c_str());
-            submit_order(orders[i].id.c_str());
+            if (orders[i].type == 0) {
+              RCLCPP_INFO(this->get_logger(), "Submitting order: %s", orders[i].id.c_str());
+              submit_order(orders[i].id.c_str());
+            }
+            else if (orders[i].type == 1) {
+              RCLCPP_INFO(this->get_logger(), "This is a Assembly order; Order ID: %s", orders[i].id.c_str());
+            }
+            else if (orders[i].type == 2) {
+              RCLCPP_INFO(this->get_logger(), "This is a Combined order; Order ID: %s", orders[i].id.c_str());
+            }
         }
+        submit_orders_ = 1;
     }
     // RCLCPP_INFO(this->get_logger(), "Order ID: %s", order.id.c_str());
 }
@@ -172,25 +181,11 @@ void AriacCompetition::submit_order(std::string order_id)
     auto result = client->async_send_request(request);
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO(rclcpp::get_logger("rclcpp"),
-                  "end_trigger_client returned result %d",
-                  result.get()->success);
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"),"",result.get()->message);
     }
-    else
-    {
-      RCLCPP_ERROR_STREAM(
-        rclcpp::get_logger("rclcpp"), "Failed to call trigger service");
+    else {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service submit_order");
     }
-  
-  
-  
-  // rclcpp::Client<ariac_msgs::srv::SubmitOrder>::SharedPtr client;
-  // client = this->create_client<ariac_msgs::srv::SubmitOrder>("/ariac/submit_order");
-  // auto request = std::make_shared<ariac_msgs::srv::SubmitOrder::Request>();
-  // request->order_id = order_id;
-
-  // auto result = client->async_send_request(request);
-  // RCLCPP_INFO(this->get_logger(), "Submitted order: %s", order_id.c_str());
 }
 
 int main(int argc, char *argv[])
