@@ -26,6 +26,8 @@
 #include <typeinfo>
 #include <vector>
 #include <chrono>
+#include <map>
+#include <utility>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <ariac_msgs/msg/assembly_part.hpp>
@@ -73,6 +75,16 @@ class AriacCompetition : public rclcpp::Node {
         "/ariac/orders", 10,
         std::bind(&AriacCompetition::order_callback, this,
                   std::placeholders::_1));
+
+    bin_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::BinParts>(
+        "/ariac/bin_parts", 10,
+        std::bind(&AriacCompetition::bin_parts_callback, this,
+                  std::placeholders::_1));
+
+    conveyor_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::ConveyorParts>(
+        "/ariac/conveyor_parts", 10,
+        std::bind(&AriacCompetition::conveyor_parts_callback, this,
+                  std::placeholders::_1));       
   }
 
  private:
@@ -84,6 +96,8 @@ class AriacCompetition : public rclcpp::Node {
   ariac_msgs::msg::Order order_;
 
   rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber_;
+  rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
+  rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
 
   /**
    * @brief Callback function for competition state subscriber and to start competition
@@ -105,6 +119,20 @@ class AriacCompetition : public rclcpp::Node {
    * @param msg Order
    */
   void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
+
+  /**
+   * @brief Callback function to retrieve bin part information
+   * 
+   * @param msg 
+   */
+  void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr msg);
+
+  /**
+   * @brief  Callback function to retrieve conveyor part information
+   * 
+   * @param msg 
+   */
+  void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr msg);
 
   /**
    * @brief Method to submit the orders
@@ -171,3 +199,10 @@ class Orders {
 };
 
 std::vector<Orders> orders;
+
+struct BinQuadrant {
+  int part_type_clr = -1;
+  geometry_msgs::msg::PoseStamped part_pose;
+};
+
+std::map<int, BinQuadrant> bin_map;

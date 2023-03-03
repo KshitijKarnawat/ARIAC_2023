@@ -169,6 +169,14 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
   }
 }
 
+void AriacCompetition::bin_parts_callback(ariac_msgs::msg::BinParts::SharedPtr msg) {
+
+} 
+
+void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::SharedPtr msg) {
+  
+} 
+
 void AriacCompetition::submit_order(std::string order_id) {
   std::string srv_name = "/ariac/submit_order";
 
