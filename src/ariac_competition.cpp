@@ -81,10 +81,20 @@ void AriacCompetition::competition_state_cb(
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
     }
   }
-
+  // Sample implementation of bin_search
   if (competition_state_ == 3) {
     for (auto i = 0; i < 3; i++) {
       if (orders[i].type == 0) {
+        for (unsigned int j =0; j<orders[i].KittingTask_var.parts_kit.size(); j++){
+          int t_c = (orders[i].KittingTask_var.parts_kit[j][1]*10 + orders[i].KittingTask_var.parts_kit[j][0]);
+          RCLCPP_INFO_STREAM(this->get_logger(),
+                            "Value sent is : " << t_c);
+          int key = search_bin(t_c);
+          RCLCPP_INFO_STREAM(this->get_logger(),
+                            "Key in Hash Map for kitting order is : " << key);
+        }
+        
+
         RCLCPP_INFO_STREAM(this->get_logger(),
                            "Submitting a Kitting order; Order ID: " << orders[i].id.c_str());
         submit_order(orders[i].id.c_str());
@@ -167,12 +177,11 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
       }
     }
   }
-  // Add func for search hash map for order or to slect one of the 3 func kittingm,assem or combined.
 }
 
 void AriacCompetition::bin_parts_callback(ariac_msgs::msg::BinParts::SharedPtr msg) {
   int m,n;
-
+  AriacCompetition::setup_map();
   for (unsigned  int i = 0; i < msg->bins.size(); i++) { 
     m = 9*((msg->bins[i].bin_number)-1);
     n = m + 9;
@@ -200,7 +209,7 @@ void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::S
       conveyor_parts.push_back((msg->parts[i].part.type)*10 + (msg->parts[i].part.color));
     }
   }
-  RCLCPP_INFO_STREAM(this->get_logger(), "Conveyor Part Information populated" << conveyor_parts.size());
+  RCLCPP_INFO_STREAM(this->get_logger(), "Conveyor Part Information populated: " << conveyor_parts.size());
   conveyor_parts_subscriber_.reset();
 }
 
@@ -234,9 +243,34 @@ void AriacCompetition::submit_order(std::string order_id) {
   }
 }
 
+int AriacCompetition::search_bin(int part){
+  for (auto& it : bin_map) {
+    if (it.second.part_type_clr == part) {
+      return it.first;
+    }
+  }
+  return -1;
+}
+
+int AriacCompetition::search_conveyor(int part){
+  auto idx = std::find(conveyor_parts.begin(), conveyor_parts.end(), part);
+  
+  if (idx != conveyor_parts.end()){ 
+    return idx - conveyor_parts.begin();
+  } else {return -1;}
+  
+  // int count = 0;
+  // for (auto& it : conveyor_parts) {
+  //   if (it == part) {
+  //     return count;
+  //   }
+  //   count++;
+  // }
+  // return -1;
+}
+
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
-  setup_map();
   auto ariac_competition = std::make_shared<AriacCompetition>("RWA1");
 
   rclcpp::spin(ariac_competition);

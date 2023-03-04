@@ -28,6 +28,7 @@
 #include <chrono>
 #include <map>
 #include <utility>
+#include <algorithm>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <ariac_msgs/msg/assembly_part.hpp>
@@ -47,7 +48,8 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
-unsigned int competition_state_;
+class Orders;
+
 
 /**
  * @brief Class definition for ARIAC Competition
@@ -55,7 +57,30 @@ unsigned int competition_state_;
  */
 class AriacCompetition : public rclcpp::Node {
  public:
+  unsigned int competition_state_;
   unsigned int submit_orders_ = 0;
+  std::vector<Orders> orders;
+  struct BinQuadrant {
+    int part_type_clr = -1;
+    geometry_msgs::msg::PoseStamped part_pose;
+  };
+
+  std::vector<int> conveyor_parts;
+
+  std::map<int, BinQuadrant> bin_map;
+
+  int search_bin(int);
+  int search_conveyor(int);
+
+  // void complete_kitting_task(Orders o);
+  // void complete_assembly_task(Orders o);
+  // void complete_combined_task(Orders o);
+
+  void setup_map(){
+    for(unsigned int i = 1; i <= 72; i++){
+      bin_map[i];
+    }
+  }
 
   /**
    * @brief Construct a new Ariac Competition object
@@ -200,20 +225,3 @@ class Orders {
   Orders();
 };
 
-std::vector<Orders> orders;
-
-struct BinQuadrant {
-  int part_type_clr = -1;
-  geometry_msgs::msg::PoseStamped part_pose;
-};
-// BinQuadrant bq;
-
-std::vector<int> conveyor_parts;
-
-std::map<int, BinQuadrant> bin_map;
-
-void setup_map(){
-  for(unsigned int i = 1; i <= 72; i++){
-    bin_map[i];
-  }
-}
