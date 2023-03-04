@@ -208,10 +208,12 @@ struct BinQuadrant {
 };
 // BinQuadrant bq;
 
+std::vector<int> conveyor_parts;
+
 std::map<int, BinQuadrant> bin_map;
 
 void setup_map(){
-  for(unsigned int i = 0; i < 56; i++){
+  for(unsigned int i = 1; i <= 72; i++){
     bin_map[i];
   }
 }
