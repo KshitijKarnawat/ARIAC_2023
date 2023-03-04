@@ -39,6 +39,8 @@
 #include <ariac_msgs/msg/order.hpp>
 #include <ariac_msgs/msg/part.hpp>
 #include <ariac_msgs/srv/submit_order.hpp>
+#include <ariac_msgs/msg/bin_parts.hpp>
+#include <ariac_msgs/msg/conveyor_parts.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/trigger.hpp>
@@ -204,5 +206,12 @@ struct BinQuadrant {
   int part_type_clr = -1;
   geometry_msgs::msg::PoseStamped part_pose;
 };
+// BinQuadrant bq;
 
 std::map<int, BinQuadrant> bin_map;
+
+void setup_map(){
+  for(unsigned int i = 0; i < 56; i++){
+    bin_map[i];
+  }
+}

@@ -211,7 +211,6 @@ int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
   auto ariac_competition = std::make_shared<AriacCompetition>("RWA1");
-
   rclcpp::spin(ariac_competition);
   rclcpp::shutdown();
 }
