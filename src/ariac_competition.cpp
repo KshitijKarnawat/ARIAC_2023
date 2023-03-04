@@ -170,12 +170,38 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
 }
 
 void AriacCompetition::bin_parts_callback(ariac_msgs::msg::BinParts::SharedPtr msg) {
+  int m,n;
 
-} 
+  for (unsigned  int i = 0; i < msg->bins.size(); i++) { 
+    m = 9*((msg->bins[i].bin_number)-1);
+    n = m + 9;
+    for (unsigned int j =0; j < msg->bins[i].parts.size();j++){
+      for (int k = 0; k < msg->bins[i].parts[j].quantity;k++){
+        for (int a = m; a< n;a++){
+          if (bin_map[a].part_type_clr == -1){
+            bin_map[a].part_type_clr = (msg->bins[i].parts[j].part.type)*10 + (msg->bins[i].parts[j].part.color);
+            break;
+            // add pose later
+          }
+        }
+      }
+    }
+  }
+ 
+  RCLCPP_INFO_STREAM(this->get_logger(), "Bin Part Information populated");
+  bin_parts_subscriber_.reset();
+}
 
 void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::SharedPtr msg) {
   
-} 
+  for (unsigned int i = 0; i < msg->parts.size(); i++) {
+    for (int j = 0; j < msg->parts[i].quantity; j++) {
+      conveyor_parts.push_back((msg->parts[i].part.type)*10 + (msg->parts[i].part.color));
+    }
+  }
+  RCLCPP_INFO_STREAM(this->get_logger(), "Conveyor Part Information populated" << conveyor_parts.size());
+  conveyor_parts_subscriber_.reset();
+}
 
 void AriacCompetition::submit_order(std::string order_id) {
   std::string srv_name = "/ariac/submit_order";
@@ -209,8 +235,9 @@ void AriacCompetition::submit_order(std::string order_id) {
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
-
+  setup_map();
   auto ariac_competition = std::make_shared<AriacCompetition>("RWA1");
+
   rclcpp::spin(ariac_competition);
   rclcpp::shutdown();
 }
