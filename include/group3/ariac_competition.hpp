@@ -57,9 +57,13 @@ class Orders;
  */
 class AriacCompetition : public rclcpp::Node {
  public:
+  int flag{0};
   unsigned int competition_state_;
   unsigned int submit_orders_ = 0;
-  std::vector<Orders> orders;
+  std::vector<Orders> incomplete_orders;
+  std::vector<Orders> current_order;
+  std::vector<Orders> submitted_orders;
+
   struct BinQuadrant {
     int part_type_clr = -1;
     geometry_msgs::msg::PoseStamped part_pose;
@@ -94,9 +98,6 @@ class AriacCompetition : public rclcpp::Node {
             std::bind(&AriacCompetition::competition_state_cb, this,
                       std::placeholders::_1));
 
-    end_competition_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(100),
-        std::bind(&AriacCompetition::end_competition_timer_callback, this));
 
     order_subscriber_ = this->create_subscription<ariac_msgs::msg::Order>(
         "/ariac/orders", 10,
@@ -112,6 +113,11 @@ class AriacCompetition : public rclcpp::Node {
         "/ariac/conveyor_parts", 10,
         std::bind(&AriacCompetition::conveyor_parts_callback, this,
                   std::placeholders::_1));       
+
+    end_competition_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(100),
+        std::bind(&AriacCompetition::end_competition_timer_callback, this));
+
   }
 
  private:
@@ -167,6 +173,8 @@ class AriacCompetition : public rclcpp::Node {
    * @param order_id Order ID
    */
   void submit_order(std::string order_id);
+
+  void process_order();
 };
 
 /**
@@ -225,3 +233,4 @@ class Orders {
   Orders();
 };
 
+  std::vector<Orders> orders;

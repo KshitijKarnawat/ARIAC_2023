@@ -6,9 +6,9 @@
  * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
  * @author Sahruday Patti (sahruday@umd.edu)
  * @author Kshitij Karnawat (kshitij@umd.edu)
- * @brief Implementation of RWA1 for ARIAC 2023 (Group 3)
- * @version 0.1
- * @date 2023-02-25
+ * @brief Implementation of RWA2 for ARIAC 2023 (Group 3)
+ * @version 0.2
+ * @date 2023-03-04
  * 
  * 
  */
@@ -18,7 +18,10 @@
 Orders::Orders() {}
 
 void AriacCompetition::end_competition_timer_callback() {
+  // RCLCPP_INFO_STREAM(this->get_logger(), "CS: " << competition_state_ << " SO: " << submit_orders_);
+
   if (competition_state_ == 3 && submit_orders_ == 1) {
+
     std::string srv_name = "/ariac/end_competition";
 
     std::shared_ptr<rclcpp::Node> node =
@@ -47,6 +50,8 @@ void AriacCompetition::end_competition_timer_callback() {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
     }
   }
+  if(!orders.empty() || !current_order.empty())
+    process_order();
 }
 
 void AriacCompetition::competition_state_cb(
@@ -82,36 +87,34 @@ void AriacCompetition::competition_state_cb(
     }
   }
   // Sample implementation of bin_search
-  if (competition_state_ == 3) {
-    for (auto i = 0; i < 3; i++) {
-      if (orders[i].type == 0) {
-        for (unsigned int j =0; j<orders[i].KittingTask_var.parts_kit.size(); j++){
-          int t_c = (orders[i].KittingTask_var.parts_kit[j][1]*10 + orders[i].KittingTask_var.parts_kit[j][0]);
-          RCLCPP_INFO_STREAM(this->get_logger(),
-                            "Value sent is : " << t_c);
-          int key = search_bin(t_c);
-          RCLCPP_INFO_STREAM(this->get_logger(),
-                            "Key in Hash Map for kitting order is : " << key);
-        }
-        
-
-        RCLCPP_INFO_STREAM(this->get_logger(),
-                           "Submitting a Kitting order; Order ID: " << orders[i].id.c_str());
-        submit_order(orders[i].id.c_str());
-      } else if (orders[i].type == 1) {
-        RCLCPP_INFO_STREAM(
-            this->get_logger(),
-            "Submitting an Assembly order; Order ID: " << orders[i].id.c_str());
-        submit_order(orders[i].id.c_str());
-      } else if (orders[i].type == 2) {
-        RCLCPP_INFO_STREAM(
-            this->get_logger(),
-            "Submitting a Combined order; Order ID: " << orders[i].id.c_str());
-        submit_order(orders[i].id.c_str());
-      }
-    }
-    submit_orders_ = 1;
-  }
+  // if (competition_state_ == 3) {
+    // for (auto i = 0; i < 3; i++) {
+    //   if (orders[i].type == 0) {
+    //     for (unsigned int j =0; j<orders[i].KittingTask_var.parts_kit.size(); j++){
+    //       int t_c = (orders[i].KittingTask_var.parts_kit[j][1]*10 + orders[i].KittingTask_var.parts_kit[j][0]);
+    //       RCLCPP_INFO_STREAM(this->get_logger(),
+    //                         "Value sent is : " << t_c);
+    //       int key = search_bin(t_c);
+    //       RCLCPP_INFO_STREAM(this->get_logger(),
+    //                         "Key in Hash Map for kitting order is : " << key);
+    //     }
+      //   RCLCPP_INFO_STREAM(this->get_logger(),
+      //                      "Submitting a Kitting order; Order ID: " << orders[i].id.c_str());
+      //   submit_order(orders[i].id.c_str());
+      // } else if (orders[i].type == 1) {
+      //   RCLCPP_INFO_STREAM(
+      //       this->get_logger(),
+      //       "Submitting an Assembly order; Order ID: " << orders[i].id.c_str());
+      //   submit_order(orders[i].id.c_str());
+      // } else if (orders[i].type == 2) {
+      //   RCLCPP_INFO_STREAM(
+      //       this->get_logger(),
+      //       "Submitting a Combined order; Order ID: " << orders[i].id.c_str());
+      //   submit_order(orders[i].id.c_str());
+      // }
+  //   }
+  //   // submit_orders_ = 1;
+  // }
 }
 
 void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
@@ -165,6 +168,7 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
     }
   }
 
+  submit_orders_ = 0;
   if (order.priority == 0 || orders.size() == 0) {
     orders.push_back(order);
   } else if (orders[orders.size() - 1].priority == 1) {
@@ -269,10 +273,83 @@ int AriacCompetition::search_conveyor(int part){
   // return -1;
 }
 
+void AriacCompetition::process_order(){
+  RCLCPP_INFO_STREAM(this->get_logger(), "Inside Process Order " << orders.size());
+  label:
+  if (orders.at(0).priority == 0){
+    current_order.push_back(orders.at(0));
+    orders.erase(orders.begin());
+  } else if (orders[0].priority == 1 && current_order.empty()){
+    current_order.push_back(orders.at(0));
+    orders.erase(orders.begin());
+  }
+  
+  while(orders.empty() && !current_order.empty()){
+    RCLCPP_INFO_STREAM(this->get_logger(),"Doing Task " << current_order[0].id << " Priority: " << current_order[0].priority);
+    
+    // if((current_order.at(0).priority != orders.at(0).priority) && (orders.at(0).priority == 1))
+    //   break;
+
+    for(unsigned int i=0; i<3;i++)
+      RCLCPP_INFO_STREAM(this->get_logger(), i);
+    
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                           "Submitting a order; Order ID: " << current_order[0].id.c_str());
+    submit_order(current_order[0].id.c_str());
+    current_order.erase(current_order.begin());
+    break;
+
+    // Check priority for breaking
+    // Make insert fn for Kitting, Assembly and Combined Orders
+  }
+  if (orders[0].priority == 1 && current_order[0].priority == 0){
+    incomplete_orders.push_back(current_order.at(0));
+    current_order.erase(current_order.begin());
+    current_order.push_back(orders.at(0));
+    orders.erase(orders.begin());
+  } 
+  while(!orders.empty() && !current_order.empty()){
+    RCLCPP_INFO_STREAM(this->get_logger(),"Continuing Task " << current_order[0].id << " Priority: " << current_order[0].priority);
+  
+    if((current_order.at(0).priority != orders.at(0).priority) && (orders.at(0).priority == 1))
+      break;
+
+    for(unsigned int i=0; i<3;i++){
+      RCLCPP_INFO_STREAM(this->get_logger(),i);
+      if (current_order[0].type == 0) {
+    
+        for (unsigned int j =0; j<current_order[0].KittingTask_var.parts_kit.size(); j++){
+          int t_c = (current_order[0].KittingTask_var.parts_kit[j][1]*10 + current_order[0].KittingTask_var.parts_kit[j][0]);
+          RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
+          int key = search_bin(t_c);
+          RCLCPP_INFO_STREAM(this->get_logger(),"Key in Hash Map for kitting order is : " << key);
+        }
+      }
+    }
+    
+    RCLCPP_INFO_STREAM(this->get_logger(), "Submitting a order; Order ID: " << current_order[0].id.c_str());
+
+    submit_order(current_order[0].id.c_str());
+    current_order.erase(current_order.begin());
+    break;
+  }
+
+  if(!incomplete_orders.empty() && current_order.empty()){
+    current_order.push_back(incomplete_orders.at(0));
+    incomplete_orders.erase(incomplete_orders.begin());
+  }
+
+  if(orders.empty() && current_order.empty() && incomplete_orders.empty()){
+    submit_orders_ = 1;
+    return;
+  }
+  
+  goto label;
+}
+
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   auto ariac_competition = std::make_shared<AriacCompetition>("RWA1");
-
   rclcpp::spin(ariac_competition);
   rclcpp::shutdown();
 }
