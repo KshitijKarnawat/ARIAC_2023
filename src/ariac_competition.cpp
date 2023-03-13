@@ -90,16 +90,6 @@ void AriacCompetition::competition_state_cb(
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
     }
   }
-    // Sample implementation of bin_search
-  //  if (current_order[0].GetType() == 0) {
-    
-  //       for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
-  //         int t_c = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
-
-  //         RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
-  //         int key = search_bin(t_c);
-  //         RCLCPP_INFO_STREAM(this->get_logger(),"Key in Hash Map for kitting order is : " << key);
-  //       }
 }
 
 
@@ -109,7 +99,7 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
 //   order.priority = msg->priority;
 //   order.type = msg->type;
 
-  if (order.GetType() == 0) {
+  if (order.GetType() == ariac_msgs::msg::Order::KITTING) {
     // kitting_.agv_id = msg->kitting_task.agv_number;
     // kitting_.tray_id = msg->kitting_task.tray_id;
     // kitting_.destination = msg->kitting_task.destination;
@@ -124,7 +114,7 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
     Kitting kitting_(msg->kitting_task.agv_number, msg->kitting_task.tray_id, 
                     msg->kitting_task.destination, _parts_kit);
     order.SetKitting(std::make_shared<Kitting> (kitting_));
-  }  else if (order.GetType() == 1) {
+  }  else if (order.GetType() == ariac_msgs::msg::Order::ASSEMBLY) {
       std::vector<unsigned int> _agv_numbers;
       for (unsigned i = 0; i < msg->assembly_task.agv_numbers.size(); i++) {
         _agv_numbers.push_back(
@@ -146,7 +136,7 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
       }
     Assembly assembly_(_agv_numbers, msg->assembly_task.station, _parts_assm);
     order.SetAssembly(std::make_shared<Assembly> (assembly_));
-  }  else if (order.GetType() == 2) {
+  }  else if (order.GetType() == ariac_msgs::msg::Order::COMBINED) {
     Part part_var;
     std::vector<Part> _parts_comb;
     for (unsigned int i = 0; i < msg->combined_task.parts.size(); i++) {
