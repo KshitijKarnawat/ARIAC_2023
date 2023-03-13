@@ -17,11 +17,11 @@ find_package(geometry_msgs REQUIRED)
 include_directories(include/group3)
 install(DIRECTORY include DESTINATION share/${PROJECT_NAME})
 
-add_executable(rwa1 src/ariac_competition.cpp)
-ament_target_dependencies(rwa1 rclcpp ariac_msgs std_srvs geometry_msgs std_msgs)
+add_executable(group3 src/ariac_competition.cpp)
+ament_target_dependencies(group3 rclcpp ariac_msgs std_srvs geometry_msgs std_msgs)
 
 install(TARGETS
-  rwa1
+  group3
   DESTINATION lib/${PROJECT_NAME}
 )
 
