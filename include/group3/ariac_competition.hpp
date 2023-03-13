@@ -1,20 +1,4 @@
-/**
- * @copyright Copyright (c) 2023
- * @file ariac_competition.hpp
- * @author Sanchit Kedia (sanchit@terpmail.umd.edu)
- * @author Adarsh Malapaka (amalapak@terpmail.umd.edu)
- * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
- * @author Sahruday Patti (sahruday@umd.edu)
- * @author Kshitij Karnawat (kshitij@umd.edu)
- * @brief Class Definitions of RWA1 for ARIAC 2023 (Group 3)
- * @version 0.1
- * @date 2023-02-25
- * 
- * 
- */
-
 #pragma once
-
 #include <unistd.h>
 
 #include <array>
@@ -44,13 +28,12 @@
 #include <ariac_msgs/msg/conveyor_parts.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
 class Orders;
-
-
 /**
  * @brief Class definition for ARIAC Competition
  * 
@@ -58,8 +41,8 @@ class Orders;
 class AriacCompetition : public rclcpp::Node {
  public:
   int flag{0};
-  unsigned int competition_state_;
   unsigned int submit_orders_ = 0;
+  int competition_state_ = -1;
   std::vector<Orders> incomplete_orders;
   std::vector<Orders> current_order;
   std::vector<Orders> submitted_orders;
@@ -98,7 +81,6 @@ class AriacCompetition : public rclcpp::Node {
             std::bind(&AriacCompetition::competition_state_cb, this,
                       std::placeholders::_1));
 
-
     order_subscriber_ = this->create_subscription<ariac_msgs::msg::Order>(
         "/ariac/orders", 10,
         std::bind(&AriacCompetition::order_callback, this,
@@ -112,11 +94,11 @@ class AriacCompetition : public rclcpp::Node {
     conveyor_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::ConveyorParts>(
         "/ariac/conveyor_parts", 10,
         std::bind(&AriacCompetition::conveyor_parts_callback, this,
-                  std::placeholders::_1));       
+                  std::placeholders::_1)); 
 
     end_competition_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(100),
-        std::bind(&AriacCompetition::end_competition_timer_callback, this));
+        std::bind(&AriacCompetition::end_competition_timer_callback, this));     
 
   }
 
@@ -153,6 +135,20 @@ class AriacCompetition : public rclcpp::Node {
    */
   void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
 
+    /**
+   * @brief Callback function to retrieve bin part information
+   * 
+   * @param msg 
+   */
+  void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr msg);
+
+  /**
+   * @brief  Callback function to retrieve conveyor part information
+   * 
+   * @param msg 
+   */
+  void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr msg);
+
   /**
    * @brief Callback function to retrieve bin part information
    * 
@@ -177,60 +173,90 @@ class AriacCompetition : public rclcpp::Node {
   void process_order();
 };
 
-/**
- * @brief Class Definition to store Kitting, Assembly and Combined orders
- * 
- */
-class Orders {
+
+class Kitting {
  public:
-  std::string id;
-  bool priority;
-  int type;
-
-  struct KittingTask {
-    int agv_id;
-    int tray_id;
-    int destination;
-    std::array<int, 3> part;  // 0-color, 1-type, 2-quadrant
-    std::vector<std::array<int, 3>> parts_kit;
-  };
-
-  KittingTask KittingTask_var;
-
-  struct AssemblyTask {
-    std::vector<int> agv_numbers;
-    int station;
-    struct part {
-      int type;
-      int color;
-      geometry_msgs::msg::PoseStamped assembled_pose;
-      geometry_msgs::msg::Vector3 install_direction;
-    };
-    part part_var;
-    std::vector<part> parts_assm;
-  };
-
-  AssemblyTask AssemblyTask_var;
-
-  struct CombinedTask {
-    int station;
-    struct part {
-      int type;
-      int color;
-      geometry_msgs::msg::PoseStamped assembled_pose;
-      geometry_msgs::msg::Vector3 install_direction;
-    };
-    part part_var;
-    std::vector<part> parts_comb;
-  };
-
-  CombinedTask CombinedTask_var;
-
-  /**
-   * @brief Construct a new Orders object
-   * 
-   */
-  Orders();
+    Kitting(unsigned int agv_number,
+                    unsigned int tray_id,
+                    unsigned int destination,
+                    const std::vector<std::array<int, 3>> _parts_kit) : agv_id_(agv_number),
+                                                                tray_id_(tray_id),
+                                                                destination_(destination),
+                                                                parts_kit_(_parts_kit) {}
+    unsigned int GetAgvId() const { return agv_id_; }
+    unsigned int GetTrayId() const { return tray_id_; }
+    unsigned int GetDestination() const { return destination_; }
+    const std::vector<std::array<int, 3>> GetParts() const { return parts_kit_; }
+ private:
+    unsigned int agv_id_;
+    unsigned int tray_id_;
+    unsigned int destination_;
+    std::vector<std::array<int, 3>> parts_kit_;
 };
 
-  std::vector<Orders> orders;
+struct Part {
+      int type;
+      int color;
+      geometry_msgs::msg::PoseStamped assembled_pose;
+      geometry_msgs::msg::Vector3 install_direction;
+};
+class Assembly {
+ public:
+    Assembly(std::vector<unsigned int> agv_numbers, unsigned int station, std::vector<Part> parts_assm) : agv_numbers_(agv_numbers),
+                                                                                        station_(station),
+                                                                                        parts_assm_(parts_assm) {}
+    // std::vector<int> GetAgvNums() const {return agv_numbers_;}
+    // std::vector<Part> GetPartAssm() const {return parts_assm_;}
+
+    const std::vector<unsigned int> GetAgvNumbers() const { return agv_numbers_; }
+
+    unsigned int GetStation() const { return station_; }
+
+    const std::vector<Part> GetParts() const { return parts_assm_; }
+ private:
+    std::vector<unsigned int> agv_numbers_;
+    unsigned int station_;
+    std::vector<Part> parts_assm_;
+};
+
+class Combined {
+ public:
+    Combined(unsigned int _station, std::vector<Part> parts_comb) : station_(_station),
+                                                            parts_comb_(parts_comb) {}
+    unsigned int GetStation() const { return station_; }
+
+    const std::vector<Part> GetParts() const { return parts_comb_; }
+ private:
+    unsigned int station_;
+    std::vector<Part> parts_comb_;
+};
+
+class Orders {
+ protected:
+    std::string id_;
+    unsigned int type_;
+    bool priority_;
+    std::shared_ptr<Kitting> kitting_ = nullptr;
+    std::shared_ptr<Assembly> assembly_ = nullptr;
+    std::shared_ptr<Combined> combined_ = nullptr;
+ public:
+    Orders(std::string id,
+              unsigned int type,
+              bool priority) : id_(id),
+                                type_(type),
+                                priority_(priority) {}
+    ~Orders() = default;
+    std::string GetId() const { return id_; }
+    unsigned int GetType() const { return type_; }
+    bool IsPriority() const { return priority_; }
+    std::shared_ptr<Kitting> GetKitting() const { return kitting_; }
+    virtual void SetKitting(std::shared_ptr<Kitting> _kitting) { kitting_ = _kitting; }
+    std::shared_ptr<Assembly> GetAssembly() const { return assembly_; }
+    virtual void SetAssembly(std::shared_ptr<Assembly> _assembly) { assembly_ = _assembly; }
+    std::shared_ptr<Combined> GetCombined() const { return combined_; }
+    virtual void SetCombined(std::shared_ptr<Combined> _combined) { combined_ = _combined; }
+
+};
+
+std::vector<Orders> orders;
+
