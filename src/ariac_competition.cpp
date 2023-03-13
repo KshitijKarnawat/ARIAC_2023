@@ -15,29 +15,16 @@
 
 
 #include "../include/group3/ariac_competition.hpp"
+#include <vector>
+
+void AriacCompetition::setup_map(){
+    for(unsigned int i = 1; i <= 72; i++){
+      bin_map[i];
+    }
+}
 
 void AriacCompetition::end_competition_timer_callback() {
-<<<<<<< HEAD
-  // RCLCPP_INFO_STREAM(this->get_logger(), "CS: " << competition_state_ << " SO: " << submit_orders_);
-
-  if (competition_state_ == 3 && submit_orders_ == 1) {
-=======
   if (competition_state_ == ariac_msgs::msg::CompetitionState::ORDER_ANNOUNCEMENTS_DONE && submit_orders_ == 1) {
->>>>>>> 803708b (check state with araic msgs)
-  //   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client;
-
-  // std::string srv_name = "/ariac/end_competition";
-
-  // client = this->create_client<std_srvs::srv::Trigger>(srv_name);
-
-  // auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
-
-  // auto result =client->async_send_request(request);
-  // result.wait();
-
-  // if (result.get()->success) {
-  //   rclcpp::shutdown();
-  // }
 
     std::string srv_name = "/ariac/end_competition";
 
@@ -67,7 +54,7 @@ void AriacCompetition::end_competition_timer_callback() {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
     }
   }
-  if(!orders.empty() || !current_order.empty())
+  if((!orders.empty() || !current_order.empty()) &&  c_flag)
     process_order();
 }
 
@@ -104,54 +91,15 @@ void AriacCompetition::competition_state_cb(
     }
   }
     // Sample implementation of bin_search
-  // if (competition_state_ == 3) {
-    // for (auto i = 0; i < 3; i++) {
-    //   if (orders[i].type == 0) {
-    //     for (unsigned int j =0; j<orders[i].KittingTask_var.parts_kit.size(); j++){
-    //       int t_c = (orders[i].KittingTask_var.parts_kit[j][1]*10 + orders[i].KittingTask_var.parts_kit[j][0]);
-    //       RCLCPP_INFO_STREAM(this->get_logger(),
-    //                         "Value sent is : " << t_c);
-    //       int key = search_bin(t_c);
-    //       RCLCPP_INFO_STREAM(this->get_logger(),
-    //                         "Key in Hash Map for kitting order is : " << key);
-    //     }
-      //   RCLCPP_INFO_STREAM(this->get_logger(),
-      //                      "Submitting a Kitting order; Order ID: " << orders[i].id.c_str());
-      //   submit_order(orders[i].id.c_str());
-      // } else if (orders[i].type == 1) {
-      //   RCLCPP_INFO_STREAM(
-      //       this->get_logger(),
-      //       "Submitting an Assembly order; Order ID: " << orders[i].id.c_str());
-      //   submit_order(orders[i].id.c_str());
-      // } else if (orders[i].type == 2) {
-      //   RCLCPP_INFO_STREAM(
-      //       this->get_logger(),
-      //       "Submitting a Combined order; Order ID: " << orders[i].id.c_str());
-      //   submit_order(orders[i].id.c_str());
-      // }
-  //   }
-  //   // submit_orders_ = 1;
-  // }
-  // if (competition_state_ == 3) {
-  //   for (auto i = 0; i < 3; i++) {
-  //     if (orders[i].GetType() == 0) {
-  //       RCLCPP_INFO_STREAM(this->get_logger(),
-  //                          "Submitting a Kitting order; Order ID: " << orders[i].GetId().c_str());
-  //       submit_order(orders[i].GetId().c_str());
-  //     } else if (orders[i].GetType() == 1) {
-  //       RCLCPP_INFO_STREAM(
-  //           this->get_logger(),
-  //           "Submitting an Assembly order; Order ID: " << orders[i].GetId().c_str());
-  //       submit_order(orders[i].GetId().c_str());
-  //     } else if (orders[i].GetType() == 2) {
-  //       RCLCPP_INFO_STREAM(
-  //           this->get_logger(),
-  //           "Submitting a Combined order; Order ID: " << orders[i].GetId().c_str());
-  //       submit_order(orders[i].GetId().c_str());
-  //     }
-  //   }
-  //   submit_orders_ = 1;
-  // }
+  //  if (current_order[0].GetType() == 0) {
+    
+  //       for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
+  //         int t_c = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
+
+  //         RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
+  //         int key = search_bin(t_c);
+  //         RCLCPP_INFO_STREAM(this->get_logger(),"Key in Hash Map for kitting order is : " << key);
+  //       }
 }
 
 
@@ -263,6 +211,7 @@ void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::S
     }
   }
   RCLCPP_INFO_STREAM(this->get_logger(), "Conveyor Part Information populated: " << conveyor_parts.size());
+  c_flag = true;
   conveyor_parts_subscriber_.reset();
 }
 
@@ -311,17 +260,59 @@ int AriacCompetition::search_conveyor(int part){
   if (idx != conveyor_parts.end()){ 
     return idx - conveyor_parts.begin();
   } else {return -1;}
-  
-  // int count = 0;
-  // for (auto& it : conveyor_parts) {
-  //   if (it == part) {
-  //     return count;
-  //   }
-  //   count++;
-  // }
-  // return -1;
 }
 
+std::string AriacCompetition::ConvertPartTypeToString(int part_type){
+    if (part_type == ariac_msgs::msg::Part::BATTERY)
+        return "Battery";
+    else if (part_type == ariac_msgs::msg::Part::PUMP)
+        return "Pump";
+    else if (part_type == ariac_msgs::msg::Part::REGULATOR)
+        return "Regulator";
+    else if (part_type == ariac_msgs::msg::Part::SENSOR)
+        return "Sensor";
+}
+
+std::string AriacCompetition::ConvertPartColorToString(int part_color){
+      if (part_color == ariac_msgs::msg::Part::RED)
+          return "Red";
+      else if (part_color == ariac_msgs::msg::Part::GREEN)
+          return "Green";
+      else if (part_color == ariac_msgs::msg::Part::BLUE)
+          return "Blue";
+      else if (part_color == ariac_msgs::msg::Part::PURPLE)
+          return "Purple";
+      else if (part_color == ariac_msgs::msg::Part::ORANGE)
+          return "Orange";
+}
+
+void AriacCompetition::do_kitting(std::vector<Orders> current_order){
+  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Kitting order: " << current_order[0].GetId());
+  int key;
+  int t_c;
+  for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
+    t_c = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
+
+    // RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
+    key = search_bin(t_c);
+    if(key == -1){
+      key = search_conveyor(t_c);
+    }
+    // RCLCPP_INFO_STREAM(this->get_logger(),"Key in Hash Map for kitting order is : " << key);
+    if(key == -1){
+    RCLCPP_INFO_STREAM(this->get_logger(),"The missing part is : " << ConvertPartColorToString(t_c%10) << " " << ConvertPartTypeToString(t_c/10));
+    RCLCPP_INFO_STREAM(this->get_logger(),"This Kitting order has insufficient parts : " << current_order[0].GetId());
+    }
+  }
+}
+
+void AriacCompetition::do_assembly(std::vector<Orders>  current_order){
+  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Assembly order: " << current_order[0].GetId());
+}
+
+void AriacCompetition::do_combined(std::vector<Orders>  current_order){
+  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Combined order: " << current_order[0].GetId());
+}
 
 
 void AriacCompetition::process_order(){
@@ -340,10 +331,16 @@ void AriacCompetition::process_order(){
     
     // if((current_order.at(0).priority != orders.at(0).priority) && (orders.at(0).priority == 1))
     //   break;
+    if(current_order[0].GetType() == ariac_msgs::msg::Order::KITTING){
+      do_kitting(current_order);
+    }
+    else if (current_order[0].GetType() == ariac_msgs::msg::Order::ASSEMBLY) {
+      do_assembly(current_order);
+    }
+    else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
+      do_combined(current_order);
+    }
 
-    for(unsigned int i=0; i<3;i++)
-      RCLCPP_INFO_STREAM(this->get_logger(), i);
-    
     RCLCPP_INFO_STREAM(this->get_logger(),
                            "Submitting a order; Order ID: " << current_order[0].GetId().c_str());
     submit_order(current_order[0].GetId().c_str());
@@ -364,26 +361,20 @@ void AriacCompetition::process_order(){
 
     RCLCPP_INFO_STREAM(this->get_logger(),"Continuing Task " << current_order[0].GetId() << " Priority: " << current_order[0].IsPriority());
   
-    if((current_order.at(0).IsPriority() != orders.at(0).IsPriority()) && (orders.at(0).IsPriority() == 1))
-
+    if((current_order.at(0).IsPriority() != orders.at(0).IsPriority()) && (orders.at(0).IsPriority() == 1)){
       break;
+    }
 
-    for(unsigned int i=0; i<3;i++){
-      RCLCPP_INFO_STREAM(this->get_logger(),i);
-
-      if (current_order[0].GetType() == 0) {
-    
-        for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
-          int t_c = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
-
-          RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
-          int key = search_bin(t_c);
-          RCLCPP_INFO_STREAM(this->get_logger(),"Key in Hash Map for kitting order is : " << key);
-        }
-      }
+    if(current_order[0].GetType() == ariac_msgs::msg::Order::KITTING){
+      do_kitting(current_order);
+    }
+    else if (current_order[0].GetType() == ariac_msgs::msg::Order::ASSEMBLY) {
+      do_assembly(current_order);
+    }
+    else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
+      do_combined(current_order);
     }
     
-
     RCLCPP_INFO_STREAM(this->get_logger(), "Submitting a order; Order ID: " << current_order[0].GetId().c_str());
 
     submit_order(current_order[0].GetId().c_str());
@@ -407,7 +398,7 @@ void AriacCompetition::process_order(){
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
-  auto ariac_competition = std::make_shared<AriacCompetition>("RWA1");
+  auto ariac_competition = std::make_shared<AriacCompetition>("Group3_Competitor");
   rclcpp::spin(ariac_competition);
   rclcpp::shutdown();
 }

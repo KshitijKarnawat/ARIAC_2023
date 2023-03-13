@@ -1,3 +1,18 @@
+/**
+ * @copyright Copyright (c) 2023
+ * @file ariac_competition.hpp
+ * @author Sanchit Kedia (sanchit@terpmail.umd.edu)
+ * @author Adarsh Malapaka (amalapak@terpmail.umd.edu)
+ * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
+ * @author Sahruday Patti (sahruday@umd.edu)
+ * @author Kshitij Karnawat (kshitij@umd.edu)
+ * @brief Implementation of RWA2 for ARIAC 2023 (Group 3)
+ * @version 0.2
+ * @date 2023-03-04
+ * 
+ * 
+ */
+
 #pragma once
 #include <unistd.h>
 
@@ -41,6 +56,7 @@ class Orders;
 class AriacCompetition : public rclcpp::Node {
  public:
   int flag{0};
+  bool c_flag{false};
   unsigned int submit_orders_ = 0;
   int competition_state_ = -1;
   std::vector<Orders> incomplete_orders;
@@ -55,19 +71,6 @@ class AriacCompetition : public rclcpp::Node {
   std::vector<int> conveyor_parts;
 
   std::map<int, BinQuadrant> bin_map;
-
-  int search_bin(int);
-  int search_conveyor(int);
-
-  // void complete_kitting_task(Orders o);
-  // void complete_assembly_task(Orders o);
-  // void complete_combined_task(Orders o);
-
-  void setup_map(){
-    for(unsigned int i = 1; i <= 72; i++){
-      bin_map[i];
-    }
-  }
 
   /**
    * @brief Construct a new Ariac Competition object
@@ -150,27 +153,72 @@ class AriacCompetition : public rclcpp::Node {
   void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr msg);
 
   /**
-   * @brief Callback function to retrieve bin part information
-   * 
-   * @param msg 
-   */
-  void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr msg);
-
-  /**
-   * @brief  Callback function to retrieve conveyor part information
-   * 
-   * @param msg 
-   */
-  void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr msg);
-
-  /**
    * @brief Method to submit the orders
    * 
    * @param order_id Order ID
    */
   void submit_order(std::string order_id);
 
+  /**
+   * @brief Method to process the order
+   * 
+   */
   void process_order();
+
+  /**
+   * @brief Method to do the kitting task
+   * 
+   */
+  void do_kitting(std::vector<Orders>);
+
+  /**
+   * @brief Method to perform the assembly task
+   * 
+   */
+  void do_assembly(std::vector<Orders>);
+
+  /**
+   * @brief Method to carry out the combined task
+   * 
+   */
+  void do_combined(std::vector<Orders>);
+
+  /**
+   * @brief 
+   * 
+   * @return int 
+   */
+  int search_bin(int);
+
+  /**
+   * @brief 
+   * 
+   * @return int 
+   */
+  int search_conveyor(int);
+
+  /**
+   * @brief Set the up map object
+   * 
+   */
+  void setup_map();
+
+  /**
+   * @brief 
+   * 
+   * @param int 
+   * @return std::string 
+   */
+  std::string ConvertPartTypeToString(int);
+
+  /**
+   * @brief 
+   * 
+   * @param int 
+   * @return std::string 
+   */
+  std::string ConvertPartColorToString(int);
+
 };
 
 
