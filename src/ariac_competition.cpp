@@ -15,7 +15,9 @@
 
 
 #include "../include/group3/ariac_competition.hpp"
+#include <algorithm>
 #include <array>
+#include <iterator>
 #include <vector>
 
 void AriacCompetition::setup_map(){
@@ -49,7 +51,9 @@ void AriacCompetition::end_competition_timer_callback() {
 
     if (rclcpp::spin_until_future_complete(node, result) ==
         rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO_STREAM(this->get_logger(), "All Orders Submitted and Ending Competition");
+      RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
+      RCLCPP_INFO_STREAM(this->get_logger(), std::string("\033[92;5m") + std::string("All Orders Submitted and Ending Competition") + std::string("\033[0m"));
+      RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
       rclcpp::shutdown();
     } else {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
@@ -318,7 +322,7 @@ std::string AriacCompetition::ConvertAssemblyStationToString(int station_id){
 }
 
 void AriacCompetition::do_kitting(std::vector<Orders> current_order){
-  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Kitting order: " << current_order[0].GetId());
+  // RCLCPP_INFO_STREAM(this->get_logger(),"Doing Kitting order: " << current_order[0].GetId());
   int key;
   std::vector<std::array<int, 2>> keys;
   int t_c;
@@ -353,7 +357,7 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order){
       continue;
     } else if (i[1] == 1) {
       part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
-      floor.PickBinPart(part_info,int(i[0])/9,int(i[0])%9);
+      floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
     } else if (i[1] == 2) {
       part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
       floor.PickConveyorPart(part_info);
@@ -363,13 +367,12 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order){
   }
 
   move_agv(current_order[0].GetKitting().get()->GetAgvId(), ConvertDestinationToString(current_order[0].GetKitting().get()->GetDestination(), current_order[0].GetKitting().get()->GetAgvId()));
-
   floor.SendHome();
 
 }
 
 void AriacCompetition::do_assembly(std::vector<Orders>  current_order){
-  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Assembly order: " << current_order[0].GetId());
+  // RCLCPP_INFO_STREAM(this->get_logger(),"Doing Assembly order: " << current_order[0].GetId());
   std::string part_info;
   
   if (current_order[0].GetAssembly().get()->GetAgvNumbers().size() > 1){
@@ -377,7 +380,6 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order){
     ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
     move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
     move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[1], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-   
   } else {
     RCLCPP_INFO_STREAM(this->get_logger(),"Parts can be found on AGV " << current_order[0].GetAssembly().get()->GetAgvNumbers()[0]);
     ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
@@ -395,10 +397,67 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order){
 }
 
 void AriacCompetition::do_combined(std::vector<Orders>  current_order){
-  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Combined order: " << current_order[0].GetId());
+  // RCLCPP_INFO_STREAM(this->get_logger(),"Doing Combined order: " << current_order[0].GetId());
   
-}
 
+  int agv_num = determine_agv(current_order[0].GetCombined().get()->GetStation());
+  int tray_num = 1;
+  std::string part_info;
+
+  ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetCombined().get()->GetStation()));
+  RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV " << agv_num);
+    
+  floor.ChangeGripper("Tray");
+  floor.PickandPlaceTray(tray_num, agv_num);
+  floor.ChangeGripper("Part");
+  
+  int key;
+  std::vector<std::array<int, 2>> keys;
+  int t_c;
+  for (unsigned int j =0; j<current_order[0].GetCombined().get()->GetParts().size(); j++){
+    t_c = (current_order[0].GetCombined().get()->GetParts()[j].type*10 + current_order[0].GetCombined().get()->GetParts()[j].color);
+
+    // RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
+    key = search_bin(t_c);
+    if(key != -1){
+      keys.push_back({key,1});
+    }
+    else if(key == -1){
+      key = search_conveyor(t_c);
+      if(key != -1){
+        keys.push_back({key,2});
+      }
+    }
+  }
+
+  int count = 0;
+  for (auto i : keys){
+    if (i[1] == 0) {
+      continue;
+    } else if (i[1] == 1) {
+      part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+      floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
+    } else if (i[1] == 2) {
+      part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
+      floor.PickConveyorPart(part_info);
+    }
+    floor.PlacePartOnKitTray(part_info, count+1, tray_num);
+    count++;
+  }
+
+  move_agv(agv_num, ConvertDestinationToString(ariac_msgs::msg::KittingTask::ASSEMBLY_FRONT, agv_num));
+
+  floor.SendHome();
+
+  for (auto i=0; i<current_order[0].GetCombined().get()->GetParts().size(); i++){
+    part_info = ConvertPartColorToString(current_order[0].GetCombined().get()->GetParts()[i].color) + " " + ConvertPartTypeToString(current_order[0].GetCombined().get()->GetParts()[i].type);
+    RCLCPP_INFO_STREAM(this->get_logger(),"Located " << part_info);
+    ceil.PickPartFromAGV(part_info);
+    ceil.PlacePartInInsert(part_info);
+  }
+
+  ceil.SendHome();
+}
 
 void AriacCompetition::process_order(){
   label:
@@ -411,8 +470,9 @@ void AriacCompetition::process_order(){
   }
   
   while(orders.empty() && !current_order.empty()){
+    RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
     RCLCPP_INFO_STREAM(this->get_logger(),"Doing Task " << current_order[0].GetId() << " Priority: " << current_order[0].IsPriority());
-    
+    RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
     // if((current_order.at(0).priority != orders.at(0).priority) && (orders.at(0).priority == 1))
     //   break;
     if(current_order[0].GetType() == ariac_msgs::msg::Order::KITTING){
@@ -486,7 +546,30 @@ void AriacCompetition::lock_agv(int agv_num){
 
 void AriacCompetition::move_agv(int agv_num, std::string dest){
   AriacCompetition::lock_agv(agv_num);
+  available_agv.erase(std::find(available_agv.begin(), available_agv.end(), agv_num));
   RCLCPP_INFO_STREAM(this->get_logger(),"Move AGV " << agv_num << " to " << dest);
+}
+
+int AriacCompetition::determine_agv(int station_num){
+  std::set<int> s1;
+  std::set<int> s2;
+  if (station_num == ariac_msgs::msg::AssemblyTask::AS1 || station_num == ariac_msgs::msg::AssemblyTask::AS2){
+    // RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV 1 or 2, based on availability");
+    s1 = {1,2};
+  } else if (station_num == ariac_msgs::msg::AssemblyTask::AS3 || station_num == ariac_msgs::msg::AssemblyTask::AS4) {
+    // RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV 3 or 4, based on availability");
+    s1 = {3,4};
+  } 
+  
+  if (station_num == ariac_msgs::msg::CombinedTask::AS1 || station_num == ariac_msgs::msg::CombinedTask::AS3){
+    s2 = {1,3};
+  } else {
+    s2 = {2,4};
+  }
+
+  std::set<int> result;
+  std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::inserter(result, result.begin()));
+  return *(result.begin());
 }
 
 int main(int argc, char *argv[]) {

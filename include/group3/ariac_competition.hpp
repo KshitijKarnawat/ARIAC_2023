@@ -28,6 +28,7 @@
 #include <map>
 #include <utility>
 #include <algorithm>
+#include <set>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <ariac_msgs/msg/assembly_part.hpp>
@@ -67,6 +68,7 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
   std::vector<Orders> incomplete_orders;
   std::vector<Orders> current_order;
   std::vector<Orders> submitted_orders;
+  std::vector<int> available_agv{1, 2, 3, 4};
 
   struct BinQuadrant {
     int part_type_clr = -1;
@@ -250,6 +252,12 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
    * 
    */
   void move_agv(int, std::string);
+
+  /**
+   * @brief 
+   * 
+   */
+  int determine_agv(int);
 };
 
 
