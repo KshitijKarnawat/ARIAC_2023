@@ -386,7 +386,7 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order){
     move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
   }
 
-  for (auto i=0; i<current_order[0].GetAssembly().get()->GetParts().size(); i++){
+  for (long unsigned int i=0; i<current_order[0].GetAssembly().get()->GetParts().size(); i++){
     part_info = ConvertPartColorToString(current_order[0].GetAssembly().get()->GetParts()[i].color) + " " + ConvertPartTypeToString(current_order[0].GetAssembly().get()->GetParts()[i].type);
     RCLCPP_INFO_STREAM(this->get_logger(),"Located " << part_info);
     ceil.PickPartFromAGV(part_info);
@@ -449,7 +449,7 @@ void AriacCompetition::do_combined(std::vector<Orders>  current_order){
 
   floor.SendHome();
 
-  for (auto i=0; i<current_order[0].GetCombined().get()->GetParts().size(); i++){
+  for (long unsigned int i=0; i<current_order[0].GetCombined().get()->GetParts().size(); i++){
     part_info = ConvertPartColorToString(current_order[0].GetCombined().get()->GetParts()[i].color) + " " + ConvertPartTypeToString(current_order[0].GetCombined().get()->GetParts()[i].type);
     RCLCPP_INFO_STREAM(this->get_logger(),"Located " << part_info);
     ceil.PickPartFromAGV(part_info);
@@ -471,7 +471,7 @@ void AriacCompetition::process_order(){
   
   while(orders.empty() && !current_order.empty()){
     RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
-    RCLCPP_INFO_STREAM(this->get_logger(),"Doing Task " << current_order[0].GetId() << " Priority: " << current_order[0].IsPriority());
+    RCLCPP_INFO_STREAM(this->get_logger(), std::string("\033[94m") + "Doing Task " <<  current_order[0].GetId() << " Priority: "  << std::to_string(current_order[0].IsPriority()) + std::string("\033[0m"));
     RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
     // if((current_order.at(0).priority != orders.at(0).priority) && (orders.at(0).priority == 1))
     //   break;
@@ -485,8 +485,7 @@ void AriacCompetition::process_order(){
       do_combined(current_order);
     }
 
-    RCLCPP_INFO_STREAM(this->get_logger(),
-                           "Submitting order; Order ID: " << current_order[0].GetId().c_str());
+    RCLCPP_INFO_STREAM(this->get_logger(), "\033[92m" + std::string("Submitting an order; Order ID: ") + current_order[0].GetId() + std::string("\033[0m"));
     submit_order(current_order[0].GetId().c_str());
     current_order.erase(current_order.begin());
     break;
@@ -518,8 +517,7 @@ void AriacCompetition::process_order(){
     else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
       do_combined(current_order);
     }
-    
-    RCLCPP_INFO_STREAM(this->get_logger(), "Submitting a order; Order ID: " << current_order[0].GetId().c_str());
+    RCLCPP_INFO_STREAM(this->get_logger(), "\033[92m" + std::string("Submitting an order; Order ID: ") + current_order[0].GetId() + std::string("\033[0m"));
 
     submit_order(current_order[0].GetId().c_str());
 
