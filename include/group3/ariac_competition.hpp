@@ -223,6 +223,33 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
    * @return std::string 
    */
   std::string ConvertPartColorToString(int);
+  
+  /**
+   * @brief 
+   * 
+   * @param int 
+   * @return std::string 
+   */
+  std::string ConvertDestinationToString(int, int);
+  
+  /**
+   * @brief 
+   * 
+   * @return std::string 
+   */
+  std::string ConvertAssemblyStationToString(int);
+
+  /**
+   * @brief 
+   * 
+   */
+  void lock_agv(int);
+
+  /**
+   * @brief 
+   * 
+   */
+  void move_agv(int, std::string);
 };
 
 
