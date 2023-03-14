@@ -191,71 +191,77 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
   void do_combined(std::vector<Orders>);
 
   /**
-   * @brief 
+   * @brief Method to search the bin for the part
    * 
    * @return int 
    */
   int search_bin(int);
 
   /**
-   * @brief 
+   * @brief Method to check if the conveyor has the part
    * 
    * @return int 
    */
   int search_conveyor(int);
 
   /**
-   * @brief Set the up map object
+   * @brief Set the up map object to store the bin part information
    * 
    */
   void setup_map();
 
   /**
-   * @brief 
+   * @brief Method to convert the part type to string
    * 
-   * @param int 
-   * @return std::string 
+   * @param int Part type from ariac_msgs::msg:Part
+   * @return std::string Part type as string
    */
   std::string ConvertPartTypeToString(int);
 
   /**
-   * @brief 
+   * @brief Method to convert the part color to string
    * 
-   * @param int 
-   * @return std::string 
+   * @param int Part color from ariac_msgs::msg:Part
+   * @return std::string Part color as string
    */
   std::string ConvertPartColorToString(int);
   
   /**
-   * @brief 
+   * @brief Method to convert the destination to string
    * 
-   * @param int 
-   * @return std::string 
+   * @param int Destination from ariac_msgs
+   * @return std::string Destination as string
    */
   std::string ConvertDestinationToString(int, int);
   
-  /**
-   * @brief 
-   * 
-   * @return std::string 
-   */
+ /**
+  * @brief Method to convert the assembly station to string
+  * 
+  * @param int Assembly station from ariac_msgs
+  * @return std::string Assembly station as string
+  */
   std::string ConvertAssemblyStationToString(int);
 
-  /**
-   * @brief 
-   * 
-   */
+ /**
+ * @brief Method to lock the AGV
+ * 
+ * @param int AGV number
+ */
   void lock_agv(int);
 
   /**
-   * @brief 
+   * @brief Method to move the AGV
    * 
+   * @param int  AGV number
+   * @param std::string AGV Destination
+   *
    */
   void move_agv(int, std::string);
 
   /**
-   * @brief 
+   * @brief Method to choose the AGV for Combined task
    * 
+   * @param int Station number
    */
   int determine_agv(int);
 };
