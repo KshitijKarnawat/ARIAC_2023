@@ -30,3 +30,16 @@ void CeilingRobot::PlacePartOnKitTray(std::string part_info, int quad, int tray_
 {
     RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Place "<< part_info << " on Tray " << tray_id << " in Quadrant " << quad);
 }
+
+void CeilingRobot::PlacePartInInsert(std::string part_info){
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Place " << part_info << " in the corresponding Insert");
+}
+
+void CeilingRobot::MoveToAssemblyStation(std::string station){
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Perform Assembly at Station " << station);
+}
+
+void CeilingRobot::PickPartFromAGV(std::string part_info){
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Pick " << part_info << " from AGV");
+}
+

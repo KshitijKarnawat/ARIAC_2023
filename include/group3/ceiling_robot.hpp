@@ -12,4 +12,7 @@ public:
     void PickBinPart(std::string part_info, int bin_num);
     void PickConveyorPart(std::string part_info);
     void PlacePartOnKitTray(std::string part_info, int quad, int tray_id);
+    void PlacePartInInsert(std::string);
+    void MoveToAssemblyStation(std::string);
+    void PickPartFromAGV(std::string);
 };
