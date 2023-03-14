@@ -37,24 +37,30 @@ colcon build --packages-select group3
 ```sh
 source /opt/ros/galactic/setup.bash
 source <Your workspace>/install/setup.bash
-ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa1
-ros2 run group3 rwa1
+ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa2
+ros2 run group3 group3
 ```
 
 ## Package Structure
 
 ```txt
 .
-├── CMakeLists.txt
-├── group3
-│   └── _init_py
-├── include
-│   └── group3
-│       └── ariac_competition.hpp
-├── nodes
-├── package.xml
-├── LICENSE.md
-├── README.md
-└── src
-    └── ariac_competition.cpp
+├─ CMakeLists.txt
+├─ LICENSE.md
+├─ README.md
+├─ document
+│  └─ Activity_Diagram_v1.jpg
+├─ group3
+│  └─ __init__py
+├─ include
+│  └─ group3
+│     ├─ ariac_competition.hpp
+│     ├─ ceiling_robot.hpp
+│     └─ floor_robot.hpp
+├─ nodes
+├─ package.xml
+└─ src
+    ├─ ariac_competition.cpp
+    ├─ ceiling_robot.cpp
+    └─ floor_robot.cpp
 ```
