@@ -48,13 +48,18 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
+#include "ceiling_robot.hpp"
+#include "floor_robot.hpp"
+
 class Orders;
 /**
  * @brief Class definition for ARIAC Competition
  * 
  */
-class AriacCompetition : public rclcpp::Node {
+class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingRobot {
  public:
+  FloorRobot floor;
+  CeilingRobot ceil;
   int flag{0};
   bool c_flag{false};
   unsigned int submit_orders_ = 0;
@@ -218,7 +223,6 @@ class AriacCompetition : public rclcpp::Node {
    * @return std::string 
    */
   std::string ConvertPartColorToString(int);
-
 };
 
 

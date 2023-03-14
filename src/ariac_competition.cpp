@@ -15,6 +15,7 @@
 
 
 #include "../include/group3/ariac_competition.hpp"
+#include <array>
 #include <vector>
 
 void AriacCompetition::setup_map(){
@@ -94,7 +95,7 @@ void AriacCompetition::competition_state_cb(
 
 
 void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
-  Orders order(msg->id, msg->priority, msg->type);
+  Orders order(msg->id, msg->type, msg->priority);
 //   order.id = msg->id;
 //   order.priority = msg->priority;
 //   order.type = msg->type;
@@ -246,67 +247,100 @@ int AriacCompetition::search_bin(int part){
 
 int AriacCompetition::search_conveyor(int part){
   auto idx = std::find(conveyor_parts.begin(), conveyor_parts.end(), part);
-  
   if (idx != conveyor_parts.end()){ 
     return idx - conveyor_parts.begin();
   } else {return -1;}
 }
 
 std::string AriacCompetition::ConvertPartTypeToString(int part_type){
-    if (part_type == ariac_msgs::msg::Part::BATTERY)
-        return "Battery";
-    else if (part_type == ariac_msgs::msg::Part::PUMP)
-        return "Pump";
-    else if (part_type == ariac_msgs::msg::Part::REGULATOR)
-        return "Regulator";
-    else if (part_type == ariac_msgs::msg::Part::SENSOR)
-        return "Sensor";
+  if (part_type == ariac_msgs::msg::Part::BATTERY)
+      return "Battery";
+  else if (part_type == ariac_msgs::msg::Part::PUMP)
+      return "Pump";
+  else if (part_type == ariac_msgs::msg::Part::REGULATOR)
+      return "Regulator";
+  else if (part_type == ariac_msgs::msg::Part::SENSOR)
+      return "Sensor";
+  else
+    return "None";
 }
 
 std::string AriacCompetition::ConvertPartColorToString(int part_color){
-      if (part_color == ariac_msgs::msg::Part::RED)
-          return "Red";
-      else if (part_color == ariac_msgs::msg::Part::GREEN)
-          return "Green";
-      else if (part_color == ariac_msgs::msg::Part::BLUE)
-          return "Blue";
-      else if (part_color == ariac_msgs::msg::Part::PURPLE)
-          return "Purple";
-      else if (part_color == ariac_msgs::msg::Part::ORANGE)
-          return "Orange";
+  if (part_color == ariac_msgs::msg::Part::RED)
+      return "Red";
+  else if (part_color == ariac_msgs::msg::Part::GREEN)
+      return "Green";
+  else if (part_color == ariac_msgs::msg::Part::BLUE)
+      return "Blue";
+  else if (part_color == ariac_msgs::msg::Part::PURPLE)
+      return "Purple";
+  else if (part_color == ariac_msgs::msg::Part::ORANGE)
+      return "Orange";
+  else
+    return "None";
 }
 
 void AriacCompetition::do_kitting(std::vector<Orders> current_order){
-  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Kitting order: " << current_order[0].GetId());
+  RCLCPP_INFO_STREAM(this->get_logger(),"\nDoing Kitting order: " << current_order[0].GetId());
   int key;
+  std::vector<std::array<int, 2>> keys;
   int t_c;
   for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
     t_c = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
 
     // RCLCPP_INFO_STREAM(this->get_logger(), "Value sent is : " << t_c);
     key = search_bin(t_c);
-    if(key == -1){
+    if(key != -1){
+      keys.push_back({key,1});
+    }
+    else if(key == -1){
       key = search_conveyor(t_c);
+      if(key != -1){
+        keys.push_back({key,2});
+      }
     }
     // RCLCPP_INFO_STREAM(this->get_logger(),"Key in Hash Map for kitting order is : " << key);
     if(key == -1){
-    RCLCPP_INFO_STREAM(this->get_logger(),"The missing part is : " << ConvertPartColorToString(t_c%10) << " " << ConvertPartTypeToString(t_c/10));
-    RCLCPP_INFO_STREAM(this->get_logger(),"This Kitting order has insufficient parts : " << current_order[0].GetId());
+      RCLCPP_WARN_STREAM(this->get_logger(),"The Missing Part is : " << ConvertPartColorToString(t_c%10) << " " << ConvertPartTypeToString(t_c/10));
+      RCLCPP_WARN_STREAM(this->get_logger(),"This Kitting order has insufficient parts : " << current_order[0].GetId());
+      keys.push_back({key,0});
     }
   }
+  std::string part_info;
+  floor.ChangeGripper("Tray");
+  floor.PickandPlaceTray(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
+  floor.ChangeGripper("Part");
+  int count = 0;
+  for (auto i : keys){
+    if (i[1] == 0) {
+      continue;
+    }
+    else if (i[1] == 1) {
+      part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+      floor.PickBinPart(part_info,int(i[0])/9,int(i[0])%9);
+    }
+    else if (i[1] == 2) {
+      part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
+      floor.PickConveyorPart(part_info);
+    }
+    floor.PlacePartOnKitTray(part_info, current_order[0].GetKitting().get()->GetParts()[count][2], current_order[0].GetKitting().get()->GetTrayId());
+    count++;
+  }
+
+  floor.SendHome();
+
 }
 
 void AriacCompetition::do_assembly(std::vector<Orders>  current_order){
-  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Assembly order: " << current_order[0].GetId());
+  RCLCPP_INFO_STREAM(this->get_logger(),"\nDoing Assembly order: " << current_order[0].GetId());
 }
 
 void AriacCompetition::do_combined(std::vector<Orders>  current_order){
-  RCLCPP_INFO_STREAM(this->get_logger(),"Doing Combined order: " << current_order[0].GetId());
+  RCLCPP_INFO_STREAM(this->get_logger(),"\nDoing Combined order: " << current_order[0].GetId());
 }
 
 
 void AriacCompetition::process_order(){
-  RCLCPP_INFO_STREAM(this->get_logger(), "Inside Process Order " << orders.size());
   label:
   if (orders.at(0).IsPriority() == 0){
     current_order.push_back(orders.at(0));
@@ -388,7 +422,7 @@ void AriacCompetition::process_order(){
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
-  auto ariac_competition = std::make_shared<AriacCompetition>("Group3_Competitor");
+  auto ariac_competition = std::make_shared<AriacCompetition>("Group3 Competitor");
   rclcpp::spin(ariac_competition);
   rclcpp::shutdown();
 }
