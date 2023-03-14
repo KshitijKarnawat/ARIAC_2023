@@ -258,28 +258,28 @@ int AriacCompetition::search_conveyor(int part){
 
 std::string AriacCompetition::ConvertPartTypeToString(int part_type){
   if (part_type == ariac_msgs::msg::Part::BATTERY)
-      return "Battery";
+      return std::string("Battery")+"\033[0m";
   else if (part_type == ariac_msgs::msg::Part::PUMP)
-      return "Pump";
+      return std::string("Pump")+"\033[0m";
   else if (part_type == ariac_msgs::msg::Part::REGULATOR)
-      return "Regulator";
+      return std::string("Regulator")+"\033[0m";
   else if (part_type == ariac_msgs::msg::Part::SENSOR)
-      return "Sensor";
+      return std::string("Sensor")+"\033[0m";
   else
     return "None";
 }
 
 std::string AriacCompetition::ConvertPartColorToString(int part_color){
   if (part_color == ariac_msgs::msg::Part::RED)
-      return "Red";
+      return std::string("\033[0;91m")+"Red";
   else if (part_color == ariac_msgs::msg::Part::GREEN)
-      return "Green";
+      return std::string("\033[92m")+"Green";
   else if (part_color == ariac_msgs::msg::Part::BLUE)
-      return "Blue";
+      return std::string("\033[94m")+"Blue";
   else if (part_color == ariac_msgs::msg::Part::PURPLE)
-      return "Purple";
+      return std::string("\033[95m")+"Purple";
   else if (part_color == ariac_msgs::msg::Part::ORANGE)
-      return "Orange";
+      return std::string("\033[0;33m")+"Orange";
   else
     return "None";
 }
@@ -471,7 +471,7 @@ void AriacCompetition::process_order(){
   
   while(orders.empty() && !current_order.empty()){
     RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
-    RCLCPP_INFO_STREAM(this->get_logger(), std::string("\033[94m") + "Doing Task " <<  current_order[0].GetId() << " Priority: "  << std::to_string(current_order[0].IsPriority()) + std::string("\033[0m"));
+    RCLCPP_INFO_STREAM(this->get_logger(), "Doing Task " <<  current_order[0].GetId() << " Priority: "  << std::to_string(current_order[0].IsPriority()));
     RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
     // if((current_order.at(0).priority != orders.at(0).priority) && (orders.at(0).priority == 1))
     //   break;
