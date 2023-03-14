@@ -266,9 +266,20 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
   int determine_agv(int);
 };
 
-
+/**
+ * @brief Class to store Kitting Order
+ * 
+ */
 class Kitting {
  public:
+    /**
+     * @brief Construct a new Kitting object
+     * 
+     * @param agv_number 
+     * @param tray_id 
+     * @param destination 
+     * @param _parts_kit 
+     */
     Kitting(unsigned int agv_number,
                     unsigned int tray_id,
                     unsigned int destination,
@@ -276,9 +287,33 @@ class Kitting {
                                                                 tray_id_(tray_id),
                                                                 destination_(destination),
                                                                 parts_kit_(_parts_kit) {}
+    
+    /**
+     * @brief Get the Agv Id object
+     * 
+     * @return unsigned int 
+     */
     unsigned int GetAgvId() const { return agv_id_; }
+
+    /**
+     * @brief Get the Tray Id object
+     * 
+     * @return unsigned int 
+     */
     unsigned int GetTrayId() const { return tray_id_; }
+
+    /**
+     * @brief Get the Destination object
+     * 
+     * @return unsigned int 
+     */
     unsigned int GetDestination() const { return destination_; }
+
+    /**
+     * @brief Get the Parts object
+     * 
+     * @return const std::vector<std::array<int, 3>> 
+     */
     const std::vector<std::array<int, 3>> GetParts() const { return parts_kit_; }
  private:
     unsigned int agv_id_;
@@ -287,24 +322,53 @@ class Kitting {
     std::vector<std::array<int, 3>> parts_kit_;
 };
 
+/**
+ * @brief Struct of type Part used in Assembly and Combined Order
+ * 
+ */
 struct Part {
       int type;
       int color;
       geometry_msgs::msg::PoseStamped assembled_pose;
       geometry_msgs::msg::Vector3 install_direction;
 };
+
+/**
+ * @brief Class to store Assembly Order
+ * 
+ */
 class Assembly {
  public:
+    /**
+     * @brief Construct a new Assembly object
+     * 
+     * @param agv_numbers 
+     * @param station 
+     * @param parts_assm 
+     */
     Assembly(std::vector<unsigned int> agv_numbers, unsigned int station, std::vector<Part> parts_assm) : agv_numbers_(agv_numbers),
                                                                                         station_(station),
                                                                                         parts_assm_(parts_assm) {}
-    // std::vector<int> GetAgvNums() const {return agv_numbers_;}
-    // std::vector<Part> GetPartAssm() const {return parts_assm_;}
 
+    /**
+     * @brief Get the Agv Numbers object
+     * 
+     * @return const std::vector<unsigned int> 
+     */
     const std::vector<unsigned int> GetAgvNumbers() const { return agv_numbers_; }
 
+    /**
+     * @brief Get the Station object
+     * 
+     * @return unsigned int 
+     */
     unsigned int GetStation() const { return station_; }
 
+    /**
+     * @brief Get the Parts object
+     * 
+     * @return const std::vector<Part> 
+     */
     const std::vector<Part> GetParts() const { return parts_assm_; }
  private:
     std::vector<unsigned int> agv_numbers_;
@@ -312,12 +376,33 @@ class Assembly {
     std::vector<Part> parts_assm_;
 };
 
+/**
+ * @brief Class to store Combined Order
+ * 
+ */
 class Combined {
  public:
+    /**
+     * @brief Construct a new Combined object
+     * 
+     * @param _station 
+     * @param parts_comb 
+     */
     Combined(unsigned int _station, std::vector<Part> parts_comb) : station_(_station),
                                                             parts_comb_(parts_comb) {}
+    
+    /**
+     * @brief Get the Station object
+     * 
+     * @return unsigned int 
+     */
     unsigned int GetStation() const { return station_; }
 
+    /**
+     * @brief Get the Parts object
+     * 
+     * @return const std::vector<Part> 
+     */
     const std::vector<Part> GetParts() const { return parts_comb_; }
  private:
     unsigned int station_;
@@ -333,20 +418,82 @@ class Orders {
     std::shared_ptr<Assembly> assembly_ = nullptr;
     std::shared_ptr<Combined> combined_ = nullptr;
  public:
+    /**
+     * @brief Construct a new Orders object
+     * 
+     * @param id 
+     * @param type 
+     * @param priority 
+     */
     Orders(std::string id,
               unsigned int type,
               bool priority) : id_(id),
                                 type_(type),
                                 priority_(priority) {}
     ~Orders() = default;
+    
+    /**
+     * @brief Get the Id object
+     * 
+     * @return std::string 
+     */
     std::string GetId() const { return id_; }
+
+    /**
+     * @brief Get the Type object
+     * 
+     * @return unsigned int 
+     */
     unsigned int GetType() const { return type_; }
+    
+    /**
+     * @brief Get the Priority of the object
+     * 
+     * @return true 
+     * @return false 
+     */
     bool IsPriority() const { return priority_; }
+
+    /**
+     * @brief Get the Kitting object
+     * 
+     * @return std::shared_ptr<Kitting> 
+     */
     std::shared_ptr<Kitting> GetKitting() const { return kitting_; }
+
+    /**
+     * @brief Set the Kitting object
+     * 
+     * @param _kitting 
+     */
     virtual void SetKitting(std::shared_ptr<Kitting> _kitting) { kitting_ = _kitting; }
+
+    /**
+     * @brief Get the Assembly object
+     * 
+     * @return std::shared_ptr<Assembly> 
+     */
     std::shared_ptr<Assembly> GetAssembly() const { return assembly_; }
+
+    /**
+     * @brief Set the Assembly object
+     * 
+     * @param _assembly 
+     */
     virtual void SetAssembly(std::shared_ptr<Assembly> _assembly) { assembly_ = _assembly; }
+
+    /**
+     * @brief Get the Combined object
+     * 
+     * @return std::shared_ptr<Combined> 
+     */
     std::shared_ptr<Combined> GetCombined() const { return combined_; }
+
+    /**
+     * @brief Set the Combined object
+     * 
+     * @param _combined 
+     */
     virtual void SetCombined(std::shared_ptr<Combined> _combined) { combined_ = _combined; }
 
 };
