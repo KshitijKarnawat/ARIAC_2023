@@ -17,7 +17,7 @@ find_package(geometry_msgs REQUIRED)
 include_directories(include/group3)
 install(DIRECTORY include DESTINATION share/${PROJECT_NAME})
 
-add_executable(group3 src/ariac_competition.cpp)
+add_executable(group3 src/ariac_competition.cpp src/floor_robot.cpp src/ceiling_robot.cpp)
 ament_target_dependencies(group3 rclcpp ariac_msgs std_srvs geometry_msgs std_msgs)
 
 install(TARGETS
