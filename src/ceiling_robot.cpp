@@ -36,10 +36,9 @@ void CeilingRobot::PlacePartInInsert(std::string part_info){
 }
 
 void CeilingRobot::MoveToAssemblyStation(std::string station){
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Perform Assembly at Station " << station);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Perform Assembly at " << station);
 }
 
 void CeilingRobot::PickPartFromAGV(std::string part_info){
     RCLCPP_INFO_STREAM(rclcpp::get_logger("Ceiling Robot"),"Pick " << part_info << " from AGV");
 }
-
