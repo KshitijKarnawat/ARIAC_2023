@@ -53,217 +53,195 @@
 #include "floor_robot.hpp"
 
 class Orders;
+
 /**
  * @brief Class definition for ARIAC Competition
  * 
  */
 class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingRobot {
- public:
-  FloorRobot floor;
-  CeilingRobot ceil;
-  int flag{0};
-  bool c_flag{false};
-  unsigned int submit_orders_ = 0;
-  int competition_state_ = -1;
-  std::vector<Orders> incomplete_orders;
-  std::vector<Orders> current_order;
-  std::vector<Orders> submitted_orders;
-  std::vector<int> available_agv{1, 2, 3, 4};
+    public:
+        FloorRobot floor;
+        CeilingRobot ceil;
 
-  struct BinQuadrant {
-    int part_type_clr = -1;
-    geometry_msgs::msg::PoseStamped part_pose;
-  };
+        bool conveyor_parts_flag_{false};
+        bool submit_orders_{false};
+        int competition_state_ = -1;
+        bool start_competition_flag_{false};
 
-  std::vector<int> conveyor_parts;
+        std::vector<Orders> orders;
+        std::vector<Orders> incomplete_orders;
+        std::vector<Orders> current_order;
+        std::vector<Orders> submitted_orders;
+        
+        std::vector<int> available_agv{1, 2, 3, 4};
 
-  std::map<int, BinQuadrant> bin_map;
+        struct BinQuadrant {
+            int part_type_clr = -1;
+            geometry_msgs::msg::PoseStamped part_pose;
+        };
 
-  /**
-   * @brief Construct a new Ariac Competition object
-   * 
-   * @param node_name Name of the node
-   */
-  AriacCompetition(std::string node_name) : Node(node_name) {
-    competition_state_sub_ =
-        this->create_subscription<ariac_msgs::msg::CompetitionState>(
-            "/ariac/competition_state", 10,
-            std::bind(&AriacCompetition::competition_state_cb, this,
-                      std::placeholders::_1));
+        std::vector<int> conveyor_parts;
+        std::map<int, BinQuadrant> bin_map;    // Holds part information in 72 possible bin locations (8 bins x 9 locations)
 
-    order_subscriber_ = this->create_subscription<ariac_msgs::msg::Order>(
-        "/ariac/orders", 10,
-        std::bind(&AriacCompetition::order_callback, this,
-                  std::placeholders::_1));
+        /**
+        * @brief Construct a new Ariac Competition object
+        * 
+        * @param node_name Name of the node
+        */
+        AriacCompetition(std::string);
 
-    bin_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::BinParts>(
-        "/ariac/bin_parts", 10,
-        std::bind(&AriacCompetition::bin_parts_callback, this,
-                  std::placeholders::_1));
+        /**
+        * @brief Callback function for competition state subscriber and to start competition
+        * 
+        * @param msg CompetitionState message 
+        */
+        void competition_state_cb(
+            const ariac_msgs::msg::CompetitionState::ConstSharedPtr);
 
-    conveyor_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::ConveyorParts>(
-        "/ariac/conveyor_parts", 10,
-        std::bind(&AriacCompetition::conveyor_parts_callback, this,
-                  std::placeholders::_1)); 
+        /**
+        * @brief Callback function to end the competition
+        * 
+        */
+        void end_competition_timer_callback();
 
-    end_competition_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(100),
-        std::bind(&AriacCompetition::end_competition_timer_callback, this));     
+        /**
+        * @brief Callback function to store the orders
+        * 
+        * @param msg Order
+        */
+        void order_callback(const ariac_msgs::msg::Order::SharedPtr);
 
-  }
+            /**
+        * @brief Callback function to retrieve bin part information
+        * 
+        * @param msg 
+        */
+        void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr);
 
- private:
-  rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
-      competition_state_sub_;
+        /**
+        * @brief  Callback function to retrieve conveyor part information
+        * 
+        * @param msg 
+        */
+        void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr);
 
-  rclcpp::TimerBase::SharedPtr end_competition_timer_;
+        /**
+        * @brief Method to submit the orders
+        * 
+        * @param order_id Order ID
+        */
+        void submit_order(std::string order_id);
 
-  ariac_msgs::msg::Order order_;
+        /**
+        * @brief Method to process the order
+        * 
+        */
+        void process_order();
 
-  rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber_;
-  rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
-  rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
+        /**
+        * @brief Method to do the kitting task
+        * 
+        */
+        void do_kitting(std::vector<Orders>);
 
-  /**
-   * @brief Callback function for competition state subscriber and to start competition
-   * 
-   * @param msg CompetitionState message 
-   */
-  void competition_state_cb(
-      const ariac_msgs::msg::CompetitionState::ConstSharedPtr msg);
+        /**
+        * @brief Method to perform the assembly task
+        * 
+        */
+        void do_assembly(std::vector<Orders>);
 
-  /**
-   * @brief Callback function to end the competition
-   * 
-   */
-  void end_competition_timer_callback();
+        /**
+        * @brief Method to carry out the combined task
+        * 
+        */
+        void do_combined(std::vector<Orders>);
 
-  /**
-   * @brief Callback function to store the orders
-   * 
-   * @param msg Order
-   */
-  void order_callback(const ariac_msgs::msg::Order::SharedPtr msg);
+        /**
+        * @brief Method to search the bin for the part
+        * 
+        * @return int 
+        */
+        int search_bin(int);
 
-    /**
-   * @brief Callback function to retrieve bin part information
-   * 
-   * @param msg 
-   */
-  void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr msg);
+        /**
+        * @brief Method to check if the conveyor has the part
+        * 
+        * @return int 
+        */
+        int search_conveyor(int);
 
-  /**
-   * @brief  Callback function to retrieve conveyor part information
-   * 
-   * @param msg 
-   */
-  void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr msg);
+        /**
+        * @brief Set the up map object to store the bin part information
+        * 
+        */
+        void setup_map();
 
-  /**
-   * @brief Method to submit the orders
-   * 
-   * @param order_id Order ID
-   */
-  void submit_order(std::string order_id);
+        /**
+        * @brief Method to convert the part type to string
+        * 
+        * @param int Part type from ariac_msgs::msg:Part
+        * @return std::string Part type as string
+        */
+        std::string ConvertPartTypeToString(int);
 
-  /**
-   * @brief Method to process the order
-   * 
-   */
-  void process_order();
+        /**
+        * @brief Method to convert the part color to string
+        * 
+        * @param int Part color from ariac_msgs::msg:Part
+        * @return std::string Part color as string
+        */
+        std::string ConvertPartColorToString(int);
+        
+        /**
+        * @brief Method to convert the destination to string
+        * 
+        * @param int Destination from ariac_msgs
+        * @return std::string Destination as string
+        */
+        std::string ConvertDestinationToString(int, int);
+        
+        /**
+        * @brief Method to convert the assembly station to string
+        * 
+        * @param int Assembly station from ariac_msgs
+        * @return std::string Assembly station as string
+        */
+        std::string ConvertAssemblyStationToString(int);
 
-  /**
-   * @brief Method to do the kitting task
-   * 
-   */
-  void do_kitting(std::vector<Orders>);
+        /**
+        * @brief Method to lock the AGV
+        * 
+        * @param int AGV number
+        */
+        void lock_agv(int);
 
-  /**
-   * @brief Method to perform the assembly task
-   * 
-   */
-  void do_assembly(std::vector<Orders>);
+        /**
+        * @brief Method to move the AGV
+        * 
+        * @param int  AGV number
+        * @param std::string AGV Destination
+        *
+        */
+        void move_agv(int, std::string);
 
-  /**
-   * @brief Method to carry out the combined task
-   * 
-   */
-  void do_combined(std::vector<Orders>);
+        /**
+        * @brief Method to choose the AGV for Combined task
+        * 
+        * @param int Station number
+        */
+        int determine_agv(int);
 
-  /**
-   * @brief Method to search the bin for the part
-   * 
-   * @return int 
-   */
-  int search_bin(int);
+    private:
+        rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
+            competition_state_sub_;
 
-  /**
-   * @brief Method to check if the conveyor has the part
-   * 
-   * @return int 
-   */
-  int search_conveyor(int);
+        rclcpp::TimerBase::SharedPtr end_competition_timer_;
 
-  /**
-   * @brief Set the up map object to store the bin part information
-   * 
-   */
-  void setup_map();
+        ariac_msgs::msg::Order order_;
 
-  /**
-   * @brief Method to convert the part type to string
-   * 
-   * @param int Part type from ariac_msgs::msg:Part
-   * @return std::string Part type as string
-   */
-  std::string ConvertPartTypeToString(int);
-
-  /**
-   * @brief Method to convert the part color to string
-   * 
-   * @param int Part color from ariac_msgs::msg:Part
-   * @return std::string Part color as string
-   */
-  std::string ConvertPartColorToString(int);
-  
-  /**
-   * @brief Method to convert the destination to string
-   * 
-   * @param int Destination from ariac_msgs
-   * @return std::string Destination as string
-   */
-  std::string ConvertDestinationToString(int, int);
-  
- /**
-  * @brief Method to convert the assembly station to string
-  * 
-  * @param int Assembly station from ariac_msgs
-  * @return std::string Assembly station as string
-  */
-  std::string ConvertAssemblyStationToString(int);
-
- /**
- * @brief Method to lock the AGV
- * 
- * @param int AGV number
- */
-  void lock_agv(int);
-
-  /**
-   * @brief Method to move the AGV
-   * 
-   * @param int  AGV number
-   * @param std::string AGV Destination
-   *
-   */
-  void move_agv(int, std::string);
-
-  /**
-   * @brief Method to choose the AGV for Combined task
-   * 
-   * @param int Station number
-   */
-  int determine_agv(int);
+        rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber_;
+        rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
+        rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
 };
 
 /**
@@ -271,55 +249,56 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
  * 
  */
 class Kitting {
- public:
-    /**
-     * @brief Construct a new Kitting object
-     * 
-     * @param agv_number 
-     * @param tray_id 
-     * @param destination 
-     * @param _parts_kit 
-     */
-    Kitting(unsigned int agv_number,
-                    unsigned int tray_id,
-                    unsigned int destination,
-                    const std::vector<std::array<int, 3>> _parts_kit) : agv_id_(agv_number),
-                                                                tray_id_(tray_id),
-                                                                destination_(destination),
-                                                                parts_kit_(_parts_kit) {}
-    
-    /**
-     * @brief Get the Agv Id object
-     * 
-     * @return unsigned int 
-     */
-    unsigned int GetAgvId() const { return agv_id_; }
+    public:
+        /**
+            * @brief Construct a new Kitting object
+            * 
+            * @param agv_number 
+            * @param tray_id 
+            * @param destination 
+            * @param _parts_kit 
+            */
+        Kitting(unsigned int agv_number,
+                        unsigned int tray_id,
+                        unsigned int destination,
+                        const std::vector<std::array<int, 3>> _parts_kit) : agv_id_(agv_number),
+                                                                    tray_id_(tray_id),
+                                                                    destination_(destination),
+                                                                    parts_kit_(_parts_kit) {}
 
-    /**
-     * @brief Get the Tray Id object
-     * 
-     * @return unsigned int 
-     */
-    unsigned int GetTrayId() const { return tray_id_; }
+        /**
+            * @brief Get the Agv Id object
+            * 
+            * @return unsigned int 
+            */
+        unsigned int GetAgvId() const { return agv_id_; }
 
-    /**
-     * @brief Get the Destination object
-     * 
-     * @return unsigned int 
-     */
-    unsigned int GetDestination() const { return destination_; }
+        /**
+            * @brief Get the Tray Id object
+            * 
+            * @return unsigned int 
+            */
+        unsigned int GetTrayId() const { return tray_id_; }
 
-    /**
-     * @brief Get the Parts object
-     * 
-     * @return const std::vector<std::array<int, 3>> 
-     */
-    const std::vector<std::array<int, 3>> GetParts() const { return parts_kit_; }
- private:
-    unsigned int agv_id_;
-    unsigned int tray_id_;
-    unsigned int destination_;
-    std::vector<std::array<int, 3>> parts_kit_;
+        /**
+            * @brief Get the Destination object
+            * 
+            * @return unsigned int 
+            */
+        unsigned int GetDestination() const { return destination_; }
+
+        /**
+            * @brief Get the Parts object
+            * 
+            * @return const std::vector<std::array<int, 3>> 
+            */
+        const std::vector<std::array<int, 3>> GetParts() const { return parts_kit_; }
+
+    private:
+        unsigned int agv_id_;
+        unsigned int tray_id_;
+        unsigned int destination_;
+        std::vector<std::array<int, 3>> parts_kit_;
 };
 
 /**
@@ -338,42 +317,43 @@ struct Part {
  * 
  */
 class Assembly {
- public:
-    /**
-     * @brief Construct a new Assembly object
-     * 
-     * @param agv_numbers 
-     * @param station 
-     * @param parts_assm 
-     */
-    Assembly(std::vector<unsigned int> agv_numbers, unsigned int station, std::vector<Part> parts_assm) : agv_numbers_(agv_numbers),
-                                                                                        station_(station),
-                                                                                        parts_assm_(parts_assm) {}
+    public:
+        /**
+        * @brief Construct a new Assembly object
+        * 
+        * @param agv_numbers 
+        * @param station 
+        * @param parts_assm 
+        */
+        Assembly(std::vector<unsigned int> agv_numbers, unsigned int station, std::vector<Part> parts_assm) : agv_numbers_(agv_numbers),
+                                                                                            station_(station),
+                                                                                            parts_assm_(parts_assm) {}
 
-    /**
-     * @brief Get the Agv Numbers object
-     * 
-     * @return const std::vector<unsigned int> 
-     */
-    const std::vector<unsigned int> GetAgvNumbers() const { return agv_numbers_; }
+        /**
+        * @brief Get the Agv Numbers object
+        * 
+        * @return const std::vector<unsigned int> 
+        */
+        const std::vector<unsigned int> GetAgvNumbers() const { return agv_numbers_; }
 
-    /**
-     * @brief Get the Station object
-     * 
-     * @return unsigned int 
-     */
-    unsigned int GetStation() const { return station_; }
+        /**
+        * @brief Get the Station object
+        * 
+        * @return unsigned int 
+        */
+        unsigned int GetStation() const { return station_; }
 
-    /**
-     * @brief Get the Parts object
-     * 
-     * @return const std::vector<Part> 
-     */
-    const std::vector<Part> GetParts() const { return parts_assm_; }
- private:
-    std::vector<unsigned int> agv_numbers_;
-    unsigned int station_;
-    std::vector<Part> parts_assm_;
+        /**
+        * @brief Get the Parts object
+        * 
+        * @return const std::vector<Part> 
+        */
+        const std::vector<Part> GetParts() const { return parts_assm_; }
+
+    private:
+        std::vector<unsigned int> agv_numbers_;
+        unsigned int station_;
+        std::vector<Part> parts_assm_;
 };
 
 /**
@@ -381,122 +361,120 @@ class Assembly {
  * 
  */
 class Combined {
- public:
-    /**
-     * @brief Construct a new Combined object
-     * 
-     * @param _station 
-     * @param parts_comb 
-     */
-    Combined(unsigned int _station, std::vector<Part> parts_comb) : station_(_station),
-                                                            parts_comb_(parts_comb) {}
-    
-    /**
-     * @brief Get the Station object
-     * 
-     * @return unsigned int 
-     */
-    unsigned int GetStation() const { return station_; }
+    public:
+        /**
+        * @brief Construct a new Combined object
+        * 
+        * @param _station 
+        * @param parts_comb 
+        */
+        Combined(unsigned int _station, std::vector<Part> parts_comb) : station_(_station),
+                                                                parts_comb_(parts_comb) {}
 
-    /**
-     * @brief Get the Parts object
-     * 
-     * @return const std::vector<Part> 
-     */
-    const std::vector<Part> GetParts() const { return parts_comb_; }
- private:
-    unsigned int station_;
-    std::vector<Part> parts_comb_;
+        /**
+        * @brief Get the Station object
+        * 
+        * @return unsigned int 
+        */
+        unsigned int GetStation() const { return station_; }
+
+        /**
+        * @brief Get the Parts object
+        * 
+        * @return const std::vector<Part> 
+        */
+        const std::vector<Part> GetParts() const { return parts_comb_; }
+
+    private:
+        unsigned int station_;
+        std::vector<Part> parts_comb_;
 };
 
 class Orders {
- protected:
-    std::string id_;
-    unsigned int type_;
-    bool priority_;
-    std::shared_ptr<Kitting> kitting_ = nullptr;
-    std::shared_ptr<Assembly> assembly_ = nullptr;
-    std::shared_ptr<Combined> combined_ = nullptr;
- public:
-    /**
-     * @brief Construct a new Orders object
-     * 
-     * @param id 
-     * @param type 
-     * @param priority 
-     */
-    Orders(std::string id,
-              unsigned int type,
-              bool priority) : id_(id),
-                                type_(type),
-                                priority_(priority) {}
-    ~Orders() = default;
-    
-    /**
-     * @brief Get the Id object
-     * 
-     * @return std::string 
-     */
-    std::string GetId() const { return id_; }
+    protected:
+        std::string id_;
+        unsigned int type_;
+        bool priority_;
+        std::shared_ptr<Kitting> kitting_ = nullptr;
+        std::shared_ptr<Assembly> assembly_ = nullptr;
+        std::shared_ptr<Combined> combined_ = nullptr;
 
-    /**
-     * @brief Get the Type object
-     * 
-     * @return unsigned int 
-     */
-    unsigned int GetType() const { return type_; }
-    
-    /**
-     * @brief Get the Priority of the object
-     * 
-     * @return true 
-     * @return false 
-     */
-    bool IsPriority() const { return priority_; }
+    public:
+        /**
+        * @brief Construct a new Orders object
+        * 
+        * @param id 
+        * @param type 
+        * @param priority 
+        */
+        Orders(std::string id,
+                unsigned int type,
+                bool priority) : id_(id),
+                                    type_(type),
+                                    priority_(priority) {}
+        ~Orders() = default;
+        
+        /**
+        * @brief Get the Id object
+        * 
+        * @return std::string 
+        */
+        std::string GetId() const { return id_; }
 
-    /**
-     * @brief Get the Kitting object
-     * 
-     * @return std::shared_ptr<Kitting> 
-     */
-    std::shared_ptr<Kitting> GetKitting() const { return kitting_; }
+        /**
+        * @brief Get the Type object
+        * 
+        * @return unsigned int 
+        */
+        unsigned int GetType() const { return type_; }
+        
+        /**
+        * @brief Get the Priority of the object
+        * 
+        * @return true 
+        * @return false 
+        */
+        bool IsPriority() const { return priority_; }
 
-    /**
-     * @brief Set the Kitting object
-     * 
-     * @param _kitting 
-     */
-    virtual void SetKitting(std::shared_ptr<Kitting> _kitting) { kitting_ = _kitting; }
+        /**
+        * @brief Get the Kitting object
+        * 
+        * @return std::shared_ptr<Kitting> 
+        */
+        std::shared_ptr<Kitting> GetKitting() const { return kitting_; }
 
-    /**
-     * @brief Get the Assembly object
-     * 
-     * @return std::shared_ptr<Assembly> 
-     */
-    std::shared_ptr<Assembly> GetAssembly() const { return assembly_; }
+        /**
+        * @brief Set the Kitting object
+        * 
+        * @param _kitting 
+        */
+        virtual void SetKitting(std::shared_ptr<Kitting> _kitting) { kitting_ = _kitting; }
 
-    /**
-     * @brief Set the Assembly object
-     * 
-     * @param _assembly 
-     */
-    virtual void SetAssembly(std::shared_ptr<Assembly> _assembly) { assembly_ = _assembly; }
+        /**
+        * @brief Get the Assembly object
+        * 
+        * @return std::shared_ptr<Assembly> 
+        */
+        std::shared_ptr<Assembly> GetAssembly() const { return assembly_; }
 
-    /**
-     * @brief Get the Combined object
-     * 
-     * @return std::shared_ptr<Combined> 
-     */
-    std::shared_ptr<Combined> GetCombined() const { return combined_; }
+        /**
+        * @brief Set the Assembly object
+        * 
+        * @param _assembly 
+        */
+        virtual void SetAssembly(std::shared_ptr<Assembly> _assembly) { assembly_ = _assembly; }
 
-    /**
-     * @brief Set the Combined object
-     * 
-     * @param _combined 
-     */
-    virtual void SetCombined(std::shared_ptr<Combined> _combined) { combined_ = _combined; }
+        /**
+        * @brief Get the Combined object
+        * 
+        * @return std::shared_ptr<Combined> 
+        */
+        std::shared_ptr<Combined> GetCombined() const { return combined_; }
 
+        /**
+        * @brief Set the Combined object
+        * 
+        * @param _combined 
+        */
+        virtual void SetCombined(std::shared_ptr<Combined> _combined) { combined_ = _combined; }
 };
-
-std::vector<Orders> orders;
-
