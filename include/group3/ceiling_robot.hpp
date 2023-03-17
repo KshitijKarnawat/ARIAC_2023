@@ -1,3 +1,18 @@
+/**
+ * @file ceiling_robot.hpp
+ * @author Sanchit Kedia (sanchit@terpmail.umd.edu)
+ * @author Adarsh Malapaka (amalapak@terpmail.umd.edu)
+ * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
+ * @author Sahruday Patti (sahruday@umd.edu)
+ * @author Kshitij Karnawat (kshitij@umd.edu)
+ * @brief Implementation of the CeilingRobot class for ARIAC 2023 (Group 3)
+ * @version 0.1
+ * @date 2023-03-17
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
+
 #pragma once
 
 #include <string>
@@ -5,19 +20,20 @@
 
 class CeilingRobot {
     public:
+        
         /**
         * @brief Method to send the ceiling robot to the home position
         * 
         */
-
         void SendHome();
+        
         /**
         * @brief Method to change the gripper of the ceiling robot
         * 
         * @param gripper String containing the name of the gripper to change to
         */
-
         void ChangeGripper(std::string gripper);
+        
         /**
         * @brief Method to pick the tray and place it on the AGV
         * 

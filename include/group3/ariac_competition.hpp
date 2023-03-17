@@ -66,13 +66,13 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
         bool conveyor_parts_flag_{false};
         bool submit_orders_{false};
         int competition_state_ = -1;
-        bool start_competition_flag_{false};
+        bool competition_started_{false};
 
         std::vector<Orders> orders;
         std::vector<Orders> incomplete_orders;
         std::vector<Orders> current_order;
         std::vector<Orders> submitted_orders;
-        
+
         std::vector<int> available_agv{1, 2, 3, 4};
 
         struct BinQuadrant {
@@ -267,31 +267,31 @@ class Kitting {
                                                                     parts_kit_(_parts_kit) {}
 
         /**
-            * @brief Get the Agv Id object
-            * 
-            * @return unsigned int 
-            */
+        * @brief Get the Agv Id object
+        * 
+        * @return unsigned int 
+        */
         unsigned int GetAgvId() const { return agv_id_; }
 
         /**
-            * @brief Get the Tray Id object
-            * 
-            * @return unsigned int 
-            */
+        * @brief Get the Tray Id object
+        * 
+        * @return unsigned int 
+        */
         unsigned int GetTrayId() const { return tray_id_; }
 
         /**
-            * @brief Get the Destination object
-            * 
-            * @return unsigned int 
-            */
+        * @brief Get the Destination object
+        * 
+        * @return unsigned int 
+        */
         unsigned int GetDestination() const { return destination_; }
 
         /**
-            * @brief Get the Parts object
-            * 
-            * @return const std::vector<std::array<int, 3>> 
-            */
+        * @brief Get the Parts object
+        * 
+        * @return const std::vector<std::array<int, 3>> 
+        */
         const std::vector<std::array<int, 3>> GetParts() const { return parts_kit_; }
 
     private:
