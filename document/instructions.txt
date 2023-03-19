@@ -22,21 +22,21 @@ This repository contains the code for the RWA2 submission for the Course ENPM663
 
 -> Steps to Build the Package
 
-source /opt/ros/galactic/setup.bash
-source <Your workspace>/install/setup.bash
-cd <Your ROS2 workspace src folder>
-git clone https://github.com/Sanchitkedia/ARIAC_2023.git group3
-cd ..
-rosdep update --include-eol-distros
-rosdep install --from-paths src -y --ignore-src
-colcon build --packages-select group3
+    source /opt/ros/galactic/setup.bash
+    source <Your workspace>/install/setup.bash
+    cd <Your ROS2 workspace src folder>
+    git clone https://github.com/Sanchitkedia/ARIAC_2023.git group3
+    cd ..
+    rosdep update --include-eol-distros
+    rosdep install --from-paths src -y --ignore-src
+    colcon build --packages-select group3
 
 -> Steps to Run the Package
 
-source /opt/ros/galactic/setup.bash
-source <Your workspace>/install/setup.bash
-ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa2
-ros2 run group3 group3
+    source /opt/ros/galactic/setup.bash
+    source <Your workspace>/install/setup.bash
+    ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa2
+    ros2 run group3 group3
 
 -> Package Structure
 .

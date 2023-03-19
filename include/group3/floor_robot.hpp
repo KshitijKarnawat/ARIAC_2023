@@ -1,3 +1,18 @@
+/**
+ * @file floor_robot.cpp
+ * @author Sanchit Kedia (sanchit@terpmail.umd.edu)
+ * @author Adarsh Malapaka (amalapak@terpmail.umd.edu)
+ * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
+ * @author Sahruday Patti (sahruday@umd.edu)
+ * @author Kshitij Karnawat (kshitij@umd.edu)
+ * @brief Implementation of the FloorRobot class for ARIAC 2023 (Group 3) 
+ * @version 0.1
+ * @date 2023-03-17
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
+
 #pragma once
 
 #include <string>
