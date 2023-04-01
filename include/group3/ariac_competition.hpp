@@ -29,8 +29,10 @@
 #include <utility>
 #include <algorithm>
 #include <set>
+#include <cmath>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+
 #include <ariac_msgs/msg/assembly_part.hpp>
 #include <ariac_msgs/msg/assembly_task.hpp>
 #include <ariac_msgs/msg/combined_task.hpp>
@@ -42,15 +44,33 @@
 #include <ariac_msgs/srv/submit_order.hpp>
 #include <ariac_msgs/msg/bin_parts.hpp>
 #include <ariac_msgs/msg/conveyor_parts.hpp>
+#include <ariac_msgs/msg/basic_logical_camera_image.hpp>
+#include <ariac_msgs/msg/vacuum_gripper_state.hpp>
+
+#include <geometric_shapes/shapes.h>
+#include <geometric_shapes/shape_operations.h>
+#include <shape_msgs/msg/mesh.h>
+
+#include "tf2/exceptions.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+
+#include <kdl/frames.hpp>
+#include <tf2_kdl/tf2_kdl.h>
+
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+
+#include <std_msgs/msg/bool.hpp>
+
 #include <std_srvs/srv/trigger.hpp>
+
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
-#include "ceiling_robot.hpp"
-#include "floor_robot.hpp"
+#include "group3/srv/floor_change_gripper.hpp"
 
 class Orders;
 
@@ -58,10 +78,8 @@ class Orders;
  * @brief Class definition for ARIAC Competition
  * 
  */
-class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingRobot {
+class AriacCompetition : public rclcpp::Node {
     public:
-        FloorRobot floor;
-        CeilingRobot ceil;
 
         bool conveyor_parts_flag_{false};
         bool submit_orders_{false};
@@ -231,6 +249,10 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
         */
         int determine_agv(int);
 
+        void move_floor_robot_home_client();
+
+        void floor_change_gripper_client(std::string gripper_type_, std::string station_);
+
     private:
         rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
             competition_state_sub_;
@@ -242,6 +264,56 @@ class AriacCompetition : public rclcpp::Node, public FloorRobot, public CeilingR
         rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
+
+        rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr floor_robot_move_home_client_;
+        rclcpp::Client<group3::srv::FloorChangeGripper>::SharedPtr floor_robot_change_gripper_client;
+
+        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts1_camera_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr left_bins_camera_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr right_bins_camera_sub_;
+         rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
+
+        // Sensor poses
+        geometry_msgs::msg::Pose kts1_camera_pose_;
+        geometry_msgs::msg::Pose kts2_camera_pose_;
+        geometry_msgs::msg::Pose left_bins_camera_pose_;
+        geometry_msgs::msg::Pose right_bins_camera_pose_;
+
+        // Trays
+        std::vector<geometry_msgs::msg::Pose> kts1_trays_;
+        std::vector<geometry_msgs::msg::Pose> kts2_trays_;
+
+        // Bins
+        std::vector<geometry_msgs::msg::Pose> left_bins_parts_;
+        std::vector<geometry_msgs::msg::Pose> right_bins_parts_;
+
+        // Callback Groups
+        rclcpp::CallbackGroup::SharedPtr topic_cb_group_;
+
+        // Gripper State
+        ariac_msgs::msg::VacuumGripperState floor_gripper_state_;
+        ariac_msgs::msg::Part floor_robot_attached_part_;
+        ariac_msgs::msg::VacuumGripperState ceiling_gripper_state_;
+        ariac_msgs::msg::Part ceiling_robot_attached_part_;
+
+        // Sensor Callbacks
+        bool kts1_camera_received_data = false;
+        bool kts2_camera_received_data = false;
+        bool left_bins_camera_received_data = false;
+        bool right_bins_camera_received_data = false;
+        bool floor_robot_task_received_data_ = false;
+
+        void kts1_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+        void kts2_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+        void left_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+        void right_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+        void floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg);
+        // Constants
+        double kit_tray_thickness_ = 0.01;
+        double drop_height_ = 0.002;
+        double pick_offset_ = 0.003;
+        double battery_grip_offset_ = -0.05;
 };
 
 /**

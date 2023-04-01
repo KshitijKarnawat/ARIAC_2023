@@ -1,0 +1,6 @@
+# Change floor robot gripper
+
+string station
+string gripper_type
+---
+bool success

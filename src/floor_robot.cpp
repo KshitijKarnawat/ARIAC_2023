@@ -15,26 +15,489 @@
 
 #include "floor_robot.hpp"
 
-void FloorRobot::SendHome() {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Floor Robot"),"Going Home ");
+FloorRobot::FloorRobot()
+    : Node("floor_robot_node"),
+      floor_robot_(std::shared_ptr<rclcpp::Node>(std::move(this)), "floor_robot"),
+      planning_scene_()
+{
+    // Use upper joint velocity and acceleration limits
+    floor_robot_.setMaxAccelerationScalingFactor(1.0);
+    floor_robot_.setMaxVelocityScalingFactor(1.0);
+
+    // Subscribe to topics
+    rclcpp::SubscriptionOptions options;
+
+    topic_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    options.callback_group = topic_cb_group_;
+
+    floor_gripper_state_sub_ = this->create_subscription<ariac_msgs::msg::VacuumGripperState>(
+        "/ariac/floor_robot_gripper_state", rclcpp::SensorDataQoS(),
+        std::bind(&FloorRobot::floor_gripper_state_cb, this, std::placeholders::_1), options);
+
+    
+    // Initialize service clients
+    quality_checker_ = this->create_client<ariac_msgs::srv::PerformQualityCheck>("/ariac/perform_quality_check");
+    floor_robot_tool_changer_ = this->create_client<ariac_msgs::srv::ChangeGripper>("/ariac/floor_robot_change_gripper");
+    floor_robot_gripper_enable_ = this->create_client<ariac_msgs::srv::VacuumGripperControl>("/ariac/floor_robot_enable_gripper");
+
+    // Register services
+    floor_robot_move_home_srv_ = create_service<std_srvs::srv::Trigger>(
+        "/competitor/move_floor_robot_home", 
+        std::bind(
+        &FloorRobot::FloorRobotMoveHome, this,
+        std::placeholders::_1, std::placeholders::_2));
+
+    floor_robot_change_gripper_srv_ = create_service<group3::srv::FloorChangeGripper>(
+        "/competitor/floor_robot_change_gripper", 
+        std::bind(
+        &FloorRobot::FloorRobotChangeGripper, this,
+        std::placeholders::_1, std::placeholders::_2));
+
+    AddModelsToPlanningScene();
+
+    RCLCPP_INFO(this->get_logger(), "Initialization successful.");
 }
 
-void FloorRobot::ChangeGripper(std::string gripper) {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Floor Robot"),"Change gripper to " << gripper << " gripper");
+FloorRobot::~FloorRobot() 
+{
+  floor_robot_.~MoveGroupInterface();
 }
 
-void FloorRobot::PickandPlaceTray(int tray_id,int agv_num) {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Floor Robot"),"Pick Tray " << tray_id << " and Place Tray On AGV " << agv_num);
+void FloorRobot::floor_gripper_state_cb(
+    const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg)
+{
+    floor_gripper_state_ = *msg;
 }
 
-void FloorRobot::PickBinPart(std::string part_info, int bin_num, int slot_num) {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Floor Robot"),"Pick " << part_info << " from Bin " << bin_num << " Slot " << slot_num);
+geometry_msgs::msg::Pose FloorRobot::MultiplyPose(
+    geometry_msgs::msg::Pose p1, geometry_msgs::msg::Pose p2)
+{
+    KDL::Frame f1;
+    KDL::Frame f2;
+
+    tf2::fromMsg(p1, f1);
+    tf2::fromMsg(p2, f2);
+
+    KDL::Frame f3 = f1 * f2;
+
+    return tf2::toMsg(f3);
 }
 
-void FloorRobot::PickConveyorPart(std::string part_info) {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Floor Robot"),"Pick " << part_info << " from Conveyor");
+void FloorRobot::LogPose(geometry_msgs::msg::Pose p)
+{
+    tf2::Quaternion q(
+        p.orientation.x,
+        p.orientation.y,
+        p.orientation.z,
+        p.orientation.w);
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    roll *= 180 / M_PI;
+    pitch *= 180 / M_PI;
+    yaw *= 180 / M_PI;
+
+    RCLCPP_INFO(get_logger(), "(X: %.2f, Y: %.2f, Z: %.2f, R: %.2f, P: %.2f, Y: %.2f)",
+                p.position.x, p.position.y, p.position.z,
+                roll, pitch, yaw);
 }
 
-void FloorRobot::PlacePartOnKitTray(std::string part_info, int quad, int tray_id) {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("Floor Robot"),"Place "<< part_info << " on Tray " << tray_id << " in Quadrant " << quad);
+geometry_msgs::msg::Pose FloorRobot::BuildPose(
+    double x, double y, double z, geometry_msgs::msg::Quaternion orientation)
+{
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = x;
+    pose.position.y = y;
+    pose.position.z = z;
+    pose.orientation = orientation;
+
+    return pose;
 }
+
+geometry_msgs::msg::Pose FloorRobot::FrameWorldPose(std::string frame_id)
+{
+    geometry_msgs::msg::TransformStamped t;
+    geometry_msgs::msg::Pose pose;
+
+    try
+    {
+        t = tf_buffer->lookupTransform("world", frame_id, tf2::TimePointZero);
+    }
+    catch (const tf2::TransformException &ex)
+    {
+        RCLCPP_ERROR(get_logger(), "Could not get transform");
+    }
+
+    pose.position.x = t.transform.translation.x;
+    pose.position.y = t.transform.translation.y;
+    pose.position.z = t.transform.translation.z;
+    pose.orientation = t.transform.rotation;
+
+    return pose;
+}
+
+double FloorRobot::GetYaw(geometry_msgs::msg::Pose pose)
+{
+    tf2::Quaternion q(
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w);
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    return yaw;
+}
+
+geometry_msgs::msg::Quaternion FloorRobot::QuaternionFromRPY(double r, double p, double y)
+{
+    tf2::Quaternion q;
+    geometry_msgs::msg::Quaternion q_msg;
+
+    q.setRPY(r, p, y);
+
+    q_msg.x = q.x();
+    q_msg.y = q.y();
+    q_msg.z = q.z();
+    q_msg.w = q.w();
+
+    return q_msg;
+}
+
+void FloorRobot::AddModelToPlanningScene(
+    std::string name, std::string mesh_file, geometry_msgs::msg::Pose model_pose)
+{
+    moveit_msgs::msg::CollisionObject collision;
+
+    collision.id = name;
+    collision.header.frame_id = "world";
+
+    shape_msgs::msg::Mesh mesh;
+    shapes::ShapeMsg mesh_msg;
+
+    std::string package_share_directory = ament_index_cpp::get_package_share_directory("test_competitor");
+    std::stringstream path;
+    path << "file://" << package_share_directory << "/meshes/" << mesh_file;
+    std::string model_path = path.str();
+
+    shapes::Mesh *m = shapes::createMeshFromResource(model_path);
+    shapes::constructMsgFromShape(m, mesh_msg);
+
+    mesh = boost::get<shape_msgs::msg::Mesh>(mesh_msg);
+
+    collision.meshes.push_back(mesh);
+    collision.mesh_poses.push_back(model_pose);
+
+    collision.operation = collision.ADD;
+
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+    collision_objects.push_back(collision);
+
+    planning_scene_.addCollisionObjects(collision_objects);
+}
+
+void FloorRobot::AddModelsToPlanningScene()
+{
+    // Add bins
+    std::map<std::string, std::pair<double, double>> bin_positions = {
+        {"bin1", std::pair<double, double>(-1.9, 3.375)},
+        {"bin2", std::pair<double, double>(-1.9, 2.625)},
+        {"bin3", std::pair<double, double>(-2.65, 2.625)},
+        {"bin4", std::pair<double, double>(-2.65, 3.375)},
+        {"bin5", std::pair<double, double>(-1.9, -3.375)},
+        {"bin6", std::pair<double, double>(-1.9, -2.625)},
+        {"bin7", std::pair<double, double>(-2.65, -2.625)},
+        {"bin8", std::pair<double, double>(-2.65, -3.375)}};
+
+    geometry_msgs::msg::Pose bin_pose;
+    for (auto const &bin : bin_positions)
+    {
+        bin_pose.position.x = bin.second.first;
+        bin_pose.position.y = bin.second.second;
+        bin_pose.position.z = 0;
+        bin_pose.orientation = QuaternionFromRPY(0, 0, 3.14159);
+
+        AddModelToPlanningScene(bin.first, "bin.stl", bin_pose);
+    }
+
+    // Add assembly stations
+    std::map<std::string, std::pair<double, double>> assembly_station_positions = {
+        {"as1", std::pair<double, double>(-7.3, 3)},
+        {"as2", std::pair<double, double>(-12.3, 3)},
+        {"as3", std::pair<double, double>(-7.3, -3)},
+        {"as4", std::pair<double, double>(-12.3, -3)},
+    };
+
+    geometry_msgs::msg::Pose assembly_station_pose;
+    for (auto const &station : assembly_station_positions)
+    {
+        assembly_station_pose.position.x = station.second.first;
+        assembly_station_pose.position.y = station.second.second;
+        assembly_station_pose.position.z = 0;
+        assembly_station_pose.orientation = QuaternionFromRPY(0, 0, 0);
+
+        AddModelToPlanningScene(station.first, "assembly_station.stl", assembly_station_pose);
+    }
+
+    // Add assembly briefcases
+    std::map<std::string, std::pair<double, double>> assembly_insert_positions = {
+        {"as1_insert", std::pair<double, double>(-7.7, 3)},
+        {"as2_insert", std::pair<double, double>(-12.7, 3)},
+        {"as3_insert", std::pair<double, double>(-7.7, -3)},
+        {"as4_insert", std::pair<double, double>(-12.7, -3)},
+    };
+
+    geometry_msgs::msg::Pose assembly_insert_pose;
+    for (auto const &insert : assembly_insert_positions)
+    {
+        assembly_insert_pose.position.x = insert.second.first;
+        assembly_insert_pose.position.y = insert.second.second;
+        assembly_insert_pose.position.z = 1.011;
+        assembly_insert_pose.orientation = QuaternionFromRPY(0, 0, 0);
+
+        AddModelToPlanningScene(insert.first, "assembly_insert.stl", assembly_insert_pose);
+    }
+
+    geometry_msgs::msg::Pose conveyor_pose;
+    conveyor_pose.position.x = -0.6;
+    conveyor_pose.position.y = 0;
+    conveyor_pose.position.z = 0;
+    conveyor_pose.orientation = QuaternionFromRPY(0, 0, 0);
+
+    AddModelToPlanningScene("conveyor", "conveyor.stl", conveyor_pose);
+
+    geometry_msgs::msg::Pose kts1_table_pose;
+    kts1_table_pose.position.x = -1.3;
+    kts1_table_pose.position.y = -5.84;
+    kts1_table_pose.position.z = 0;
+    kts1_table_pose.orientation = QuaternionFromRPY(0, 0, 3.14159);
+
+    AddModelToPlanningScene("kts1_table", "kit_tray_table.stl", kts1_table_pose);
+
+    geometry_msgs::msg::Pose kts2_table_pose;
+    kts2_table_pose.position.x = -1.3;
+    kts2_table_pose.position.y = 5.84;
+    kts2_table_pose.position.z = 0;
+    kts2_table_pose.orientation = QuaternionFromRPY(0, 0, 0);
+
+    AddModelToPlanningScene("kts2_table", "kit_tray_table.stl", kts2_table_pose);
+}
+
+geometry_msgs::msg::Quaternion FloorRobot::SetRobotOrientation(double rotation)
+{
+    tf2::Quaternion tf_q;
+    tf_q.setRPY(0, 3.14159, rotation);
+
+    geometry_msgs::msg::Quaternion q;
+
+    q.x = tf_q.x();
+    q.y = tf_q.y();
+    q.z = tf_q.z();
+    q.w = tf_q.w();
+
+    return q;
+}
+
+bool FloorRobot::FloorRobotMovetoTarget()
+{
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    bool success = static_cast<bool>(floor_robot_.plan(plan));
+
+    if (success)
+    {
+        return static_cast<bool>(floor_robot_.execute(plan));
+    }
+    else
+    {
+        RCLCPP_ERROR(get_logger(), "Unable to generate plan");
+        return false;
+    }
+}
+
+bool FloorRobot::FloorRobotMoveCartesian(
+    std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf)
+{
+    moveit_msgs::msg::RobotTrajectory trajectory;
+
+    double path_fraction = floor_robot_.computeCartesianPath(waypoints, 0.01, 0.0, trajectory);
+
+    if (path_fraction < 0.9)
+    {
+        RCLCPP_ERROR(get_logger(), "Unable to generate trajectory through waypoints");
+        return false;
+    }
+    // Retime trajectory
+    robot_trajectory::RobotTrajectory rt(floor_robot_.getCurrentState()->getRobotModel(), "floor_robot");
+    rt.setRobotTrajectoryMsg(*floor_robot_.getCurrentState(), trajectory);
+    totg_.computeTimeStamps(rt, vsf, asf);
+    rt.getRobotTrajectoryMsg(trajectory);
+
+    return static_cast<bool>(floor_robot_.execute(trajectory));
+}
+
+void FloorRobot::FloorRobotWaitForAttach(double timeout)
+{
+    // Wait for part to be attached
+    rclcpp::Time start = now();
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+    geometry_msgs::msg::Pose starting_pose = floor_robot_.getCurrentPose().pose;
+
+    while (!floor_gripper_state_.attached)
+    {
+        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000, "Waiting for gripper attach");
+
+        waypoints.clear();
+        starting_pose.position.z -= 0.001;
+        waypoints.push_back(starting_pose);
+
+        FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
+
+        usleep(200);
+
+        if (now() - start > rclcpp::Duration::from_seconds(timeout))
+        {
+            RCLCPP_ERROR(get_logger(), "Unable to pick up object");
+            return;
+        }
+    }
+}
+
+void FloorRobot::FloorRobotMoveHome(
+  std_srvs::srv::Trigger::Request::SharedPtr req,
+  std_srvs::srv::Trigger::Response::SharedPtr res)
+{
+  (void)req; // remove unused parameter warning
+  (void)res; // remove unused parameter warning
+  floor_robot_.setNamedTarget("home");
+  FloorRobotMovetoTarget();
+}
+
+bool FloorRobot::FloorRobotSetGripperState(bool enable)
+{
+    if (floor_gripper_state_.enabled == enable)
+    {
+        if (floor_gripper_state_.enabled)
+            RCLCPP_INFO(get_logger(), "Already enabled");
+        else
+            RCLCPP_INFO(get_logger(), "Already disabled");
+
+        return false;
+    }
+
+    // Call enable service
+    auto request = std::make_shared<ariac_msgs::srv::VacuumGripperControl::Request>();
+    request->enable = enable;
+
+    auto result = floor_robot_gripper_enable_->async_send_request(request);
+    result.wait();
+
+    if (!result.get()->success)
+    {
+        RCLCPP_ERROR(get_logger(), "Error calling gripper enable service");
+        return false;
+    }
+
+    return true;
+}
+
+void FloorRobot::FloorRobotChangeGripper(
+    group3::srv::FloorChangeGripper::Request::SharedPtr req,
+    group3::srv::FloorChangeGripper::Response::SharedPtr res)
+{
+    std::string station = req->station;
+    std::string gripper_type = req->gripper_type;
+
+    // Move floor robot to the corresponding kit tray table
+    if (station == "kts1")
+    {
+        floor_robot_.setJointValueTarget(floor_kts1_js_);
+    }
+    else
+    {
+        floor_robot_.setJointValueTarget(floor_kts2_js_);
+    }
+    FloorRobotMovetoTarget();
+
+    // Move gripper into tool changer
+    auto tc_pose = FrameWorldPose(station + "_tool_changer_" + gripper_type + "_frame");
+
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+    waypoints.push_back(BuildPose(tc_pose.position.x, tc_pose.position.y,
+                                  tc_pose.position.z + 0.4, SetRobotOrientation(0.0)));
+
+    waypoints.push_back(BuildPose(tc_pose.position.x, tc_pose.position.y,
+                                  tc_pose.position.z, SetRobotOrientation(0.0)));
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"Waypoint 0 x: " << waypoints[0].position.x << " y: "<<waypoints[0].position.y << " z: "<< waypoints[0].position.z);
+    RCLCPP_INFO_STREAM(this->get_logger(),"Waypoint 1 x: " << waypoints[1].position.x << " y: "<< waypoints[1].position.y << " z: "<<waypoints[1].position.z);
+
+    if (!FloorRobotMoveCartesian(waypoints, 0.2, 0.1))
+        res->success = false;
+
+    // Call service to change gripper
+    auto request = std::make_shared<ariac_msgs::srv::ChangeGripper::Request>();
+
+    if (gripper_type == "trays")
+    {
+        request->gripper_type = ariac_msgs::srv::ChangeGripper::Request::TRAY_GRIPPER;
+    }
+    else if (gripper_type == "parts")
+    {
+        request->gripper_type = ariac_msgs::srv::ChangeGripper::Request::PART_GRIPPER;
+    }
+
+    auto result = floor_robot_tool_changer_->async_send_request(request);
+    result.wait();
+    if (!result.get()->success)
+    {
+        RCLCPP_ERROR(get_logger(), "Error calling gripper change service");
+        res->success = false;
+    }
+
+    waypoints.clear();
+    waypoints.push_back(BuildPose(tc_pose.position.x, tc_pose.position.y,
+                                  tc_pose.position.z + 0.4, SetRobotOrientation(0.0)));
+
+    if (!FloorRobotMoveCartesian(waypoints, 0.2, 0.1))
+        res->success = false;
+
+    res->success = true;
+}
+
+// int main(int argc, char *argv[])
+// {
+//   rclcpp::init(argc, argv);
+
+//   auto robot_commander = std::make_shared<FloorRobot>();
+
+//   rclcpp::spin(robot_commander);
+
+//   rclcpp::shutdown();
+// }
+
+// int main(int argc, char *argv[])
+// {
+//     rclcpp::init(argc, argv);
+//     auto floor_robot = std::make_shared<FloorRobot>();
+//     rclcpp::executors::MultiThreadedExecutor executor;
+//     executor.add_node(floor_robot);
+//     executor.spin();
+
+//     // floor_robot->FloorRobotSendHome();
+//     // floor_robot->CompleteOrders();
+
+//     rclcpp::shutdown();
+// }
+
+// int main(int argc, char *argv[])
+// {
+//     rclcpp::init(argc, argv);
+//     auto floor_robot = std::make_shared<FloorRobot>();
+//     rclcpp::executors::MultiThreadedExecutor executor;
+//     executor.add_node(floor_robot);
+    
+//     std::thread thread([&executor]() { executor.spin(); });
+//     rclcpp::shutdown();
+// }
