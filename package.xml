@@ -19,7 +19,7 @@
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>ariac_msgs</depend>
-  <depend>group3_msgs</depend>
+  <!-- <depend>group3_msgs</depend> -->
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <depend>geometry_msgs</depend>

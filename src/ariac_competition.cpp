@@ -844,11 +844,12 @@ int main(int argc, char *argv[])
     auto spin_thread = std::make_unique<std::thread>([&executor, &ariac_competition,  &floor_robot]() {
       executor.add_node(floor_robot);
       executor.add_node(ariac_competition);
-      executor.spin();
-      executor.remove_node(ariac_competition);
-      executor.remove_node(floor_robot);
+      
+      // executor.remove_node(ariac_competition);
+      // executor.remove_node(floor_robot);
     });
 
     spin_thread->join();
+    executor.spin();
     rclcpp::shutdown();
 }
