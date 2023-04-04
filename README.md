@@ -37,8 +37,8 @@ colcon build --packages-select group3
 ```sh
 source /opt/ros/galactic/setup.bash
 source <Your workspace>/install/setup.bash
-ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa2
-ros2 run group3 group3
+ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa3 competitor_pkg:=group3
+ros2 launch group3 group3.launch.py
 ```
 
 ## Package Structure
