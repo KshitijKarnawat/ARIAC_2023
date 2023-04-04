@@ -71,6 +71,7 @@
 #include <geometry_msgs/msg/vector3.hpp>
 
 #include "group3/srv/floor_change_gripper.hpp"
+#include "group3/srv/floor_pick_tray.hpp"
 
 class Orders;
 
@@ -253,6 +254,8 @@ class AriacCompetition : public rclcpp::Node {
 
         void floor_change_gripper_client(std::string gripper_type_, std::string station_);
 
+        void floor_picknplace_tray_client(int tray_id, int agv_num);
+
     private:
         rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
             competition_state_sub_;
@@ -267,6 +270,7 @@ class AriacCompetition : public rclcpp::Node {
 
         rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr floor_robot_move_home_client_;
         rclcpp::Client<group3::srv::FloorChangeGripper>::SharedPtr floor_robot_change_gripper_client;
+        rclcpp::Client<group3::srv::FloorPickTray>::SharedPtr floor_pick_place_tray_client;
 
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts1_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;

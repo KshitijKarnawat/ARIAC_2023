@@ -49,19 +49,19 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
   options.callback_group = topic_cb_group_;
 
   kts1_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
-      "/ariac/sensors/kts1_camera/image", rclcpp::SensorDataQoS(),
+      "/ariac/sensors/kts1_basic_camera/image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::kts1_camera_cb, this, std::placeholders::_1), options);
 
   kts2_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
-      "/ariac/sensors/kts2_camera/image", rclcpp::SensorDataQoS(),
+      "/ariac/sensors/kts2_basic_camera/image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::kts2_camera_cb, this, std::placeholders::_1), options);
 
   left_bins_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
-      "/ariac/sensors/left_bins_camera/image", rclcpp::SensorDataQoS(),
+      "/ariac/sensors/left_bins_basic_camera/image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::left_bins_camera_cb, this, std::placeholders::_1), options);
 
   right_bins_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
-      "/ariac/sensors/right_bins_camera/image", rclcpp::SensorDataQoS(),
+      "/ariac/sensors/right_bins_basic_camera/image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::right_bins_camera_cb, this, std::placeholders::_1), options);
 
   RCLCPP_INFO(this->get_logger(), "Initialization successful.");
@@ -410,13 +410,12 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
 
   std::string part_info;
 
-  // floor.ChangeGripper("Tray");
   move_floor_robot_home_client();
   if (floor_gripper_state_.type != "tray_gripper")
   {
-      floor_change_gripper_client("trays","kts2");
+      floor_change_gripper_client("trays","kts1");
   }
-  // floor.PickandPlaceTray(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
+  floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
   if (floor_gripper_state_.type != "part_gripper")
   {
       floor_change_gripper_client("parts","kts1");
@@ -642,14 +641,12 @@ int AriacCompetition::determine_agv(int station_num) {
 }
 
 void AriacCompetition::floor_gripper_state_cb(
-    const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg)
-{
-    floor_gripper_state_ = *msg;
+  const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg){
+  floor_gripper_state_ = *msg;
 }
 
 void AriacCompetition::kts1_camera_cb(
-    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg)
-{
+    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg){
     if (!kts1_camera_received_data)
     {
         RCLCPP_INFO(get_logger(), "Received data from kts1 camera");
@@ -661,8 +658,7 @@ void AriacCompetition::kts1_camera_cb(
 }
 
 void AriacCompetition::kts2_camera_cb(
-    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg)
-{
+    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg){
     if (!kts2_camera_received_data)
     {
         RCLCPP_INFO(get_logger(), "Received data from kts2 camera");
@@ -674,8 +670,7 @@ void AriacCompetition::kts2_camera_cb(
 }
 
 void AriacCompetition::left_bins_camera_cb(
-    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg)
-{
+    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg){
     if (!left_bins_camera_received_data)
     {
         RCLCPP_INFO(get_logger(), "Received data from left bins camera");
@@ -687,8 +682,7 @@ void AriacCompetition::left_bins_camera_cb(
 }
 
 void AriacCompetition::right_bins_camera_cb(
-    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg)
-{
+    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg){
     if (!right_bins_camera_received_data)
     {
         RCLCPP_INFO(get_logger(), "Received data from right bins camera");
@@ -702,65 +696,128 @@ void AriacCompetition::right_bins_camera_cb(
 void AriacCompetition::move_floor_robot_home_client(){
   std::string srv_name = "/competitor/move_floor_robot_home";
 
-        std::shared_ptr<rclcpp::Node> node =
-            rclcpp::Node::make_shared("move_floor_robot_client");
-        
-        rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client =
-            node->create_client<std_srvs::srv::Trigger>(srv_name);
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("move_floor_robot_client");
+  
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client =
+      node->create_client<std_srvs::srv::Trigger>(srv_name);
 
-        auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+  auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
 
-        while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
-          if (!rclcpp::ok()) {
-            RCLCPP_ERROR(this->get_logger(),
-                          "Interrupted while waiting for the service. Exiting.");
-          }
-          RCLCPP_INFO_STREAM(this->get_logger(),
-                              "Service not available, waiting again...");
-        }
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
 
-        auto result = client->async_send_request(request);
+  auto result = client->async_send_request(request);
 
-        if (rclcpp::spin_until_future_complete(node, result) ==
-            rclcpp::FutureReturnCode::SUCCESS) {
-          RCLCPP_INFO_STREAM(this->get_logger(), "Moved FLoor Robot to Home Pose");
-        } else {
-          RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
-        }
+  if (rclcpp::spin_until_future_complete(node, result) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(), "Moved FLoor Robot to Home Pose");
+  } else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
+  }
 
 }
 
 void AriacCompetition::floor_change_gripper_client(std::string gripper_type_, std::string station_){
   std::string srv_name = "/competitor/floor_robot_change_gripper";
 
-        std::shared_ptr<rclcpp::Node> node =
-            rclcpp::Node::make_shared("floor_robot_change_gripper_client");
-        
-        rclcpp::Client<group3::srv::FloorChangeGripper>::SharedPtr client =
-            node->create_client<group3::srv::FloorChangeGripper>(srv_name);
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("floor_robot_change_gripper_client");
+  
+  rclcpp::Client<group3::srv::FloorChangeGripper>::SharedPtr client =
+      node->create_client<group3::srv::FloorChangeGripper>(srv_name);
 
-        auto request = std::make_shared<group3::srv::FloorChangeGripper::Request>();
-        request->station = station_;
-        request->gripper_type = gripper_type_;
+  auto request = std::make_shared<group3::srv::FloorChangeGripper::Request>();
+  request->station = station_;
+  request->gripper_type = gripper_type_;
 
-        while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
-          if (!rclcpp::ok()) {
-            RCLCPP_ERROR(this->get_logger(),
-                          "Interrupted while waiting for the service. Exiting.");
-          }
-          RCLCPP_INFO_STREAM(this->get_logger(),
-                              "Service not available, waiting again...");
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(), "Successfully changed gripper");
+  } else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to change gripper");
+  }
+
+}
+
+void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
+
+  std::string srv_name = "/competitor/floor_pick_place_tray";
+
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("floor_pick_place_tray_client");
+  
+  rclcpp::Client<group3::srv::FloorPickTray>::SharedPtr client =
+      node->create_client<group3::srv::FloorPickTray>(srv_name);
+
+  auto request = std::make_shared<group3::srv::FloorPickTray::Request>();
+
+  bool found_tray = false;
+
+  for (auto tray : kts1_trays_)
+    {
+        if (tray_id == 1)
+        {
+            request->station = "kts1";
+            request->tray_pose = tray;
+            request->camera_pose = kts2_camera_pose_;
+            found_tray = true;
+            break;
         }
-
-        auto result = client->async_send_request(request);
-
-        if (rclcpp::spin_until_future_complete(node, result) ==
-            rclcpp::FutureReturnCode::SUCCESS) {
-          RCLCPP_INFO_STREAM(this->get_logger(), "Successfully changed gripper");
-        } else {
-          RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to change gripper");
+    }
+    // Check table 2
+    if (!found_tray)
+    {
+        for (auto tray : kts2_trays_)
+        {
+            if (tray_id == 3)
+            {
+                request->station = "kts2";
+                request->tray_pose = tray;
+                request->camera_pose = kts1_camera_pose_;
+                found_tray = true;
+                break;
+            }
         }
+    }
 
+  request->tray_id = tray_id;
+  request->agv_num = agv_num;
+
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(), "Successfully Picked Tray");
+  } else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to pickup tray");
+  }
 }
 
 // int main(int argc, char *argv[])

@@ -57,6 +57,7 @@
 #include <geometry_msgs/msg/pose.hpp>
 
 #include "group3/srv/floor_change_gripper.hpp"
+#include "group3/srv/floor_pick_tray.hpp"
 
 class FloorRobot : public rclcpp::Node
 {
@@ -70,15 +71,20 @@ public:
   void FloorRobotMoveHome(
     std_srvs::srv::Trigger::Request::SharedPtr req,
     std_srvs::srv::Trigger::Response::SharedPtr res);
+    
   void FloorRobotChangeGripper(
     group3::srv::FloorChangeGripper::Request::SharedPtr req,
     group3::srv::FloorChangeGripper::Response::SharedPtr res);
+
+  void FloorRobotPickandPlaceTray(
+    group3::srv::FloorPickTray::Request::SharedPtr req,
+    group3::srv::FloorPickTray::Response::SharedPtr res);
 
 private:
 
   bool FloorRobotMovetoTarget();
   bool FloorRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf);
-  void FloorRobotWaitForAttach(double timeout);
+  void FloorRobotWaitForAttach(double timeout,std::vector<geometry_msgs::msg::Pose> waypoints);
 
   geometry_msgs::msg::Quaternion SetRobotOrientation(double rotation);
 
@@ -111,6 +117,7 @@ private:
   // ROS Services
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr floor_robot_move_home_srv_;
   rclcpp::Service<group3::srv::FloorChangeGripper>::SharedPtr floor_robot_change_gripper_srv_;
+  rclcpp::Service<group3::srv::FloorPickTray>::SharedPtr floor_pick_place_tray_srv_;
 
   // Gripper State Callback
   void floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg);
