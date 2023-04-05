@@ -29,6 +29,8 @@ find_package(builtin_interfaces REQUIRED)
 set(srv_files
   "srv/FloorChangeGripper.srv"
   "srv/FloorPickTray.srv"
+  "srv/FloorPickPartBin.srv"
+  "srv/FloorPlacePart.srv"
 )
 # find_package(opencv_python REQUIRED)
 
