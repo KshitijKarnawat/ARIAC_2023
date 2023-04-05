@@ -1,0 +1,6 @@
+# Pick and Place Tray on AGV
+
+uint8 agv_num
+uint8 quadrant
+---
+bool success

@@ -72,6 +72,8 @@
 
 #include "group3/srv/floor_change_gripper.hpp"
 #include "group3/srv/floor_pick_tray.hpp"
+#include "group3/srv/floor_pick_part_bin.hpp"
+#include "group3/srv/floor_place_part.hpp"
 
 class Orders;
 
@@ -256,6 +258,10 @@ class AriacCompetition : public rclcpp::Node {
 
         void floor_picknplace_tray_client(int tray_id, int agv_num);
 
+        bool floor_pick_bin_part_client(int part_clr,int part_type);
+
+        bool floor_place_part_client(int agv_num, int quadrant);
+
     private:
         rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
             competition_state_sub_;
@@ -271,12 +277,14 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr floor_robot_move_home_client_;
         rclcpp::Client<group3::srv::FloorChangeGripper>::SharedPtr floor_robot_change_gripper_client;
         rclcpp::Client<group3::srv::FloorPickTray>::SharedPtr floor_pick_place_tray_client;
+        rclcpp::Client<group3::srv::FloorPickPartBin>::SharedPtr floor_pick_part_bin_client;
+        rclcpp::Client<group3::srv::FloorPlacePart>::SharedPtr floor_place_part_client_;
 
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts1_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr left_bins_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr right_bins_camera_sub_;
-         rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
 
         // Sensor poses
         geometry_msgs::msg::Pose kts1_camera_pose_;

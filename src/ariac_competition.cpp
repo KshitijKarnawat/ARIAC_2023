@@ -413,12 +413,12 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   move_floor_robot_home_client();
   if (floor_gripper_state_.type != "tray_gripper")
   {
-      floor_change_gripper_client("trays","kts1");
+      floor_change_gripper_client("trays","kts2");
   }
   floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
   if (floor_gripper_state_.type != "part_gripper")
   {
-      floor_change_gripper_client("parts","kts1");
+      floor_change_gripper_client("parts","kts2");
   }
 
   int count = 0;
@@ -426,13 +426,16 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     if (i[1] == 0) {
       continue;
     } else if (i[1] == 1) {
-      part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+      // part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+      RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << bin_map[i[0]].part_type_clr%10 << " " << bin_map[i[0]].part_type_clr/10);
+      floor_pick_bin_part_client((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10);
       // floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
     } else if (i[1] == 2) {
       part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
       // floor.PickConveyorPart(part_info);
     }
     // floor.PlacePartOnKitTray(part_info, current_order[0].GetKitting().get()->GetParts()[count][2], current_order[0].GetKitting().get()->GetTrayId());
+    floor_place_part_client(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
     count++;
   }
 
@@ -773,29 +776,29 @@ void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
 
   for (auto tray : kts1_trays_)
     {
-        if (tray_id == 1)
-        {
-            request->station = "kts1";
-            request->tray_pose = tray;
-            request->camera_pose = kts2_camera_pose_;
-            found_tray = true;
-            break;
-        }
+      if (tray_id == 1)
+      {
+          request->station = "kts1";
+          request->tray_pose = tray;
+          request->camera_pose = kts1_camera_pose_;
+          found_tray = true;
+          break;
+      }
     }
     // Check table 2
     if (!found_tray)
     {
-        for (auto tray : kts2_trays_)
-        {
-            if (tray_id == 3)
-            {
-                request->station = "kts2";
-                request->tray_pose = tray;
-                request->camera_pose = kts1_camera_pose_;
-                found_tray = true;
-                break;
-            }
-        }
+      for (auto tray : kts2_trays_)
+      {
+          if (tray_id == 3)
+          {
+              request->station = "kts2";
+              request->tray_pose = tray;
+              request->camera_pose = kts2_camera_pose_;
+              found_tray = true;
+              break;
+          }
+      }
     }
 
   request->tray_id = tray_id;
@@ -818,6 +821,111 @@ void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
   } else {
     RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to pickup tray");
   }
+}
+
+bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type){
+
+  std::string srv_name = "/competitor/floor_pick_part_bin";
+
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("floor_pick_part_bin_client");
+  
+  rclcpp::Client<group3::srv::FloorPickPartBin>::SharedPtr client =
+      node->create_client<group3::srv::FloorPickPartBin>(srv_name);
+
+  auto request = std::make_shared<group3::srv::FloorPickPartBin::Request>();
+
+  bool found_part = false;
+  std::string bin_side;
+
+  // Check left bins
+  for (auto part : left_bins_parts_)
+  {
+      if((part_type == 13 && part_clr == 0))
+      {
+          found_part = true;
+          RCLCPP_INFO_STREAM(this->get_logger(), "Found part" << part_clr << " " << part_type);
+          request->part_pose = part;
+          request->camera_pose = left_bins_camera_pose_;
+          RCLCPP_INFO_STREAM(this->get_logger(), "Camera pose x:" << left_bins_camera_pose_.position.x << " y:" << left_bins_camera_pose_.position.y << " z:" << left_bins_camera_pose_.position.z);
+          request->bin_side = "left_bins";
+          break;
+      }
+  }
+  // Check right bins
+  if (!found_part)
+  {
+      for (auto part : right_bins_parts_)
+      {
+          if ((part_type == 12 && part_clr == 0) || ( part_type == 11 && part_clr == 0))
+          {
+              request->part_pose = part;
+              request->camera_pose = right_bins_camera_pose_;
+              request->bin_side = "right_bins";
+              break;
+          }
+      }
+  }
+
+  request->part_clr = part_clr;
+  request->part_type = part_type;
+
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+      return false;
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(), "Successfully Picked Tray");
+    return true;
+  } else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to pickup tray");
+    return false;
+  }
+}
+
+bool AriacCompetition::floor_place_part_client(int agv_num, int quadrant){
+    std::string srv_name = "/competitor/floor_place_part";
+  
+    std::shared_ptr<rclcpp::Node> node =
+        rclcpp::Node::make_shared("floor_place_part_client_");
+    
+    rclcpp::Client<group3::srv::FloorPlacePart>::SharedPtr client =
+        node->create_client<group3::srv::FloorPlacePart>(srv_name);
+  
+    auto request = std::make_shared<group3::srv::FloorPlacePart::Request>();
+
+    request->agv_num = agv_num;
+    request->quadrant = quadrant;
+  
+    while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+      if (!rclcpp::ok()) {
+        RCLCPP_ERROR(this->get_logger(),
+                      "Interrupted while waiting for the service. Exiting.");
+        return false;
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(),
+                          "Service not available, waiting again...");
+    }
+  
+    auto result = client->async_send_request(request);
+  
+    if (rclcpp::spin_until_future_complete(node, result) ==
+        rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_INFO_STREAM(this->get_logger(), "Successfully Placed Part on Kit Tray");
+      return true;
+    } else {
+      RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to place part on kit tray");
+      return false;
+    }
 }
 
 // int main(int argc, char *argv[])
