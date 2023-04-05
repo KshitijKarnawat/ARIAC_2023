@@ -26,7 +26,8 @@ class ImageSubscriber(Node):
     # from the video_frames topic. The queue size is 10 messages.
     self.subscription = self.create_subscription(
       Image, 
-      '/ariac/sensors/right_bins_rgb_camera/rgb_image', 
+      # '/ariac/sensors/kts1_rgb_camera/rgb_image',
+      '/ariac/sensors/kts2_rgb_camera/rgb_image',
       self.listener_callback, 
       10)
     self.subscription # prevent unused variable warning
@@ -46,10 +47,10 @@ class ImageSubscriber(Node):
     current_frame = cv2.cvtColor(current_frame, cv2.COLOR_RGB2BGR)
      
     # Display image
-    # cv2.imwrite('ariac_img.png', current_frame)
-    # self.get_logger().info('Saved image')
-    # self.destroy_node()
-    # cv2.waitKey(1)
+    cv2.imwrite('ariac_img.png', current_frame)
+    self.get_logger().info('Saved image')
+    self.destroy_node()
+    cv2.waitKey(1)
    
 def main(args=None):
    
