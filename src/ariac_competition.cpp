@@ -857,7 +857,7 @@ bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type){
   {
       for (auto part : right_bins_parts_)
       {
-          if ((part_type == 12 && part_clr == 0) || ( part_type == 11 && part_clr == 0))
+          if ((part_type == 12 && part_clr == 0) || ( part_type == 10 && part_clr == 0))
           {
               request->part_pose = part;
               request->camera_pose = right_bins_camera_pose_;
