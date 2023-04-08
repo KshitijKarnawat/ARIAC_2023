@@ -1,10 +1,11 @@
 #include "tray_id_detect.hpp"
-#include <type_traits>
+// #include <type_traits>
 
 std::vector<int> tray_detect(cv::Mat frame){
 
-    cv::Mat im = frame;
+    std::vector<int> tray_aruco_id{-1, -1, -1};
 
+    cv::Mat im = frame;
     cv::Mat img = im.clone();
     
     cv::Mat blank_img(img.size().height, img.size().width, CV_8UC3, cv::Scalar(255, 255, 255));
@@ -26,19 +27,28 @@ std::vector<int> tray_detect(cv::Mat frame){
     cv::Mat outputImage = im.clone();
     // cv::aruco::drawDetectedMarkers(outputImage, corners, markerIDs);
 
-    // if (markerIDs.size() > 0) {
-    //     cv::aruco::drawDetectedMarkers(outputImage, corners, markerIDs);
+    if (markerIDs.size() > 0) {
+        // cv::aruco::drawDetectedMarkers(outputImage, corners, markerIDs);
 
-    //     for(const auto& corner : corners) {
-    //         cv::Point2f center(0.f, 0.f);
+        int count = 0;
+        for(const auto& corner : corners) {
+            cv::Point2f center(0.f, 0.f);
 
-    //         for(const auto& c : corner) {
-    //             center += c;
-    //         }
-    //         center /= 4.f;
-    //         cv::circle(outputImage, center, 4, cv::Scalar(0,0,255), cv::FILLED);
-    //     }
-    // }
+            for(const auto& c : corner) {
+                center += c;
+            }
+            center /= 4.f;
+            if (center.x < 250) {
+                tray_aruco_id.at(0) = markerIDs[count];
+            } else if (center.x < 400) {
+                tray_aruco_id.at(1) = markerIDs[count];
+            } else {
+                tray_aruco_id.at(2) = markerIDs[count];
+            }
+            count += 1; 
+            // cv::circle(outputImage, center, 4, cv::Scalar(0,0,255), cv::FILLED);
+        }
+    }
     
-    return // some vector
+    return tray_aruco_id;
 }
