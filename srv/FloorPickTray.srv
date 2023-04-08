@@ -1,7 +1,7 @@
 # Pick and Place Tray on AGV
 
 string station
-geometry_msgs/Pose tray_pose
+uint8 tray_pose
 geometry_msgs/Pose camera_pose
 int8 tray_id
 uint8 agv_num
