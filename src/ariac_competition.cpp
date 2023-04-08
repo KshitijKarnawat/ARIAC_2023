@@ -915,32 +915,54 @@ void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
 
   bool found_tray = false;
 
-  for (auto tray : kts1_trays_)
-    {
-      if (tray_id == 1)
-      {
-          request->station = "kts1";
-          request->tray_pose = tray;
-          request->camera_pose = kts1_camera_pose_;
-          found_tray = true;
-          break;
-      }
-    }
-    // Check table 2
-    if (!found_tray)
-    {
-      for (auto tray : kts2_trays_)
-      {
-          if (tray_id == 3)
-          {
-              request->station = "kts2";
-              request->tray_pose = tray;
-              request->camera_pose = kts2_camera_pose_;
-              found_tray = true;
-              break;
-          }
-      }
-    }
+  std::vector<int> kts2_vec;
+
+  tray_aruco_id = tray_detect(kts1_rgb_camera_image_);
+  kts2_vec = tray_detect(kts2_rgb_camera_image_);
+  tray_aruco_id.insert(tray_aruco_id.end(), kts2_vec_.begin(), kts2_vec.end());
+
+  auto tray_it = std::find(tray_aruco_id.begin(), tray_aruco_id.end(), tray_id);
+  auto tray_idx = tray_aruco_id.begin() - tray_it;
+
+  if (tray_idx < 3) {
+      request->station = "kts1";
+      request->tray_pose = tray_idx;
+      request->camera_pose = kts1_camera_pose_;
+
+
+  } else {
+      request->station = "kts2";
+      request->tray_pose = tray_idx;
+      request->camera_pose = kts2_camera_pose_;
+  }
+
+
+  // for (auto tray : kts1_trays_)
+  //   {
+  //     if (tray_id == 1)
+  //     {
+  //         request->station = "kts1";
+  //         request->tray_pose = tray;
+  //         request->camera_pose = kts1_camera_pose_;
+  //         found_tray = true;
+  //         break;
+  //     }
+  //   }
+  //   // Check table 2
+  //   if (!found_tray)
+  //   {
+  //     for (auto tray : kts2_trays_)
+  //     {
+  //         if (tray_id == 3)
+  //         {
+  //             request->station = "kts2";
+  //             request->tray_pose = tray;
+  //             request->camera_pose = kts2_camera_pose_;
+  //             found_tray = true;
+  //             break;
+  //         }
+  //     }
+  //   }
 
   request->tray_id = tray_id;
   request->agv_num = agv_num;

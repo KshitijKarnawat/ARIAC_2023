@@ -103,7 +103,7 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<Orders> current_order;
         std::vector<Orders> submitted_orders;
 
-        std::vector<int> tray_aruco_id{};
+        std::vector<int> tray_aruco_id;
 
         struct BinQuadrant {
             int part_type_clr = -1;
