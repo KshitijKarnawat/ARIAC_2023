@@ -33,6 +33,12 @@
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include "cv_bridge/cv_bridge.h"
+
 #include <ariac_msgs/msg/assembly_part.hpp>
 #include <ariac_msgs/msg/assembly_task.hpp>
 #include <ariac_msgs/msg/combined_task.hpp>
@@ -41,11 +47,13 @@
 #include <ariac_msgs/msg/kitting_task.hpp>
 #include <ariac_msgs/msg/order.hpp>
 #include <ariac_msgs/msg/part.hpp>
-#include <ariac_msgs/srv/submit_order.hpp>
 #include <ariac_msgs/msg/bin_parts.hpp>
 #include <ariac_msgs/msg/conveyor_parts.hpp>
 #include <ariac_msgs/msg/basic_logical_camera_image.hpp>
 #include <ariac_msgs/msg/vacuum_gripper_state.hpp>
+
+#include <ariac_msgs/srv/submit_order.hpp>
+#include <ariac_msgs/srv/move_agv.hpp>
 
 #include <geometric_shapes/shapes.h>
 #include <geometric_shapes/shape_operations.h>
@@ -63,6 +71,7 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 
 #include <std_msgs/msg/bool.hpp>
+#include <sensor_msgs/msg/image.hpp>
 
 #include <std_srvs/srv/trigger.hpp>
 
@@ -94,7 +103,7 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<Orders> current_order;
         std::vector<Orders> submitted_orders;
 
-        std::vector<int> available_agv{1, 2, 3, 4};
+        std::vector<int> tray_aruco_id{};
 
         struct BinQuadrant {
             int part_type_clr = -1;
@@ -237,13 +246,20 @@ class AriacCompetition : public rclcpp::Node {
         void lock_agv(int);
 
         /**
+        * @brief Method to unlock the AGV
+        * 
+        * @param int AGV number
+        */
+        void unlock_agv(int);
+
+        /**
         * @brief Method to move the AGV
         * 
         * @param int  AGV number
-        * @param std::string AGV Destination
+        * @param int AGV Destination
         *
         */
-        void move_agv(int, std::string);
+        void move_agv(int, int);
 
         /**
         * @brief Method to choose the AGV for Combined task
@@ -274,17 +290,23 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
 
-        rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr floor_robot_move_home_client_;
-        rclcpp::Client<group3::srv::FloorChangeGripper>::SharedPtr floor_robot_change_gripper_client;
-        rclcpp::Client<group3::srv::FloorPickTray>::SharedPtr floor_pick_place_tray_client;
-        rclcpp::Client<group3::srv::FloorPickPartBin>::SharedPtr floor_pick_part_bin_client;
-        rclcpp::Client<group3::srv::FloorPlacePart>::SharedPtr floor_place_part_client_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts1_rgb_camera_sub_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts2_rgb_camera_sub_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr left_bins_rgb_camera_sub_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr right_bins_rgb_camera_sub_;
 
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts1_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr left_bins_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr right_bins_camera_sub_;
+
         rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
+        
+        // Sensor Images
+        cv::Mat kts1_rgb_camera_image_;
+        cv::Mat kts2_rgb_camera_image_;
+        cv::Mat left_bins_camera_image_;
+        cv::Mat right_bins_camera_image_;
 
         // Sensor poses
         geometry_msgs::msg::Pose kts1_camera_pose_;
@@ -314,12 +336,22 @@ class AriacCompetition : public rclcpp::Node {
         bool kts2_camera_received_data = false;
         bool left_bins_camera_received_data = false;
         bool right_bins_camera_received_data = false;
-        bool floor_robot_task_received_data_ = false;
+
+        bool kts1_rgb_camera_received_data = false;
+        bool kts2_rgb_camera_received_data = false;
+        bool left_bins_rgb_camera_received_data = false;
+        bool right_bins_rgb_camera_received_data = false;
 
         void kts1_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void kts2_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void left_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void right_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+
+        void kts1_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
+        void kts2_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
+        void left_bins_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
+        void right_bins_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
+
         void floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg);
         // Constants
         double kit_tray_thickness_ = 0.01;

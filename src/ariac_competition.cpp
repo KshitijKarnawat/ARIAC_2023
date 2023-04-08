@@ -16,10 +16,12 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include <string>
 #include <vector>
 
 #include "../include/group3/ariac_competition.hpp"
 #include "../include/group3/floor_robot.hpp"
+// #include "../include/group3/tray_id_detect.hpp"
 
 AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
   competition_state_sub_ =
@@ -63,6 +65,22 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
   right_bins_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
       "/ariac/sensors/right_bins_basic_camera/image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::right_bins_camera_cb, this, std::placeholders::_1), options);
+  
+  kts1_rgb_camera_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "/ariac/sensors/kts1_rgb_camera/rgb_image", rclcpp::SensorDataQoS(),
+      std::bind(&AriacCompetition::kts1_rgb_camera_cb, this, std::placeholders::_1), options);
+
+  kts2_rgb_camera_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "/ariac/sensors/kts2_rgb_camera/rgb_image", rclcpp::SensorDataQoS(),
+      std::bind(&AriacCompetition::kts2_rgb_camera_cb, this, std::placeholders::_1), options);
+
+  left_bins_rgb_camera_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "/ariac/sensors/left_bins_rgb_camera/rgb_image", rclcpp::SensorDataQoS(),
+      std::bind(&AriacCompetition::left_bins_rgb_camera_cb, this, std::placeholders::_1), options);
+
+  right_bins_rgb_camera_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "/ariac/sensors/right_bins_rgb_camera/rgb_image", rclcpp::SensorDataQoS(),
+      std::bind(&AriacCompetition::right_bins_rgb_camera_cb, this, std::placeholders::_1), options);
 
   RCLCPP_INFO(this->get_logger(), "Initialization successful.");
 
@@ -439,7 +457,7 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     count++;
   }
 
-  move_agv(current_order[0].GetKitting().get()->GetAgvId(), ConvertDestinationToString(current_order[0].GetKitting().get()->GetDestination(), current_order[0].GetKitting().get()->GetAgvId()));
+  move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
   move_floor_robot_home_client();
 
 }
@@ -450,12 +468,12 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
   if (current_order[0].GetAssembly().get()->GetAgvNumbers().size() > 1) {
     RCLCPP_INFO_STREAM(this->get_logger(),"Parts can be found on AGVs " << current_order[0].GetAssembly().get()->GetAgvNumbers()[0] << " and " << current_order[0].GetAssembly().get()->GetAgvNumbers()[1]);
     // ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-    move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-    move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[1], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
+    // move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
+    // move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[1], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
   } else {
     RCLCPP_INFO_STREAM(this->get_logger(),"Parts can be found on AGV " << current_order[0].GetAssembly().get()->GetAgvNumbers()[0]);
     // ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-    move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
+    // move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
   }
 
   for (long unsigned int i = 0; i < current_order[0].GetAssembly().get()->GetParts().size(); i++){
@@ -513,7 +531,7 @@ void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
     count++;
   }
 
-  move_agv(agv_num, ConvertDestinationToString(ariac_msgs::msg::KittingTask::ASSEMBLY_FRONT, agv_num));
+  // move_agv(agv_num, ConvertDestinationToString(ariac_msgs::msg::KittingTask::ASSEMBLY_FRONT, agv_num));
   // floor.SendHome();
 
   for (long unsigned int i = 0; i < current_order[0].GetCombined().get()->GetParts().size(); i++){
@@ -613,13 +631,96 @@ std::string AriacCompetition::ConvertAssemblyStationToString(int station_id) {
 }
 
 void AriacCompetition::lock_agv(int agv_num) {
-  RCLCPP_INFO_STREAM(this->get_logger(),"Lock AGV " << agv_num);
+  std::string srv_name = "/ariac/agv" + std::to_string(agv_num) + "_lock_tray";
+
+    std::shared_ptr<rclcpp::Node> node =
+        rclcpp::Node::make_shared("lock_agv_client");
+    
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client =
+        node->create_client<std_srvs::srv::Trigger>(srv_name);
+
+    auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+
+    while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+      if (!rclcpp::ok()) {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Interrupted while waiting for the service. Exiting.");
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(),
+                         "Service not available, waiting again...");
+    }
+
+    auto result = client->async_send_request(request);
+
+    if (rclcpp::spin_until_future_complete(node, result) ==
+        rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_INFO_STREAM(this->get_logger(),"Locked AGV " << agv_num);
+    } else {
+      RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
+    }
 }
 
-void AriacCompetition::move_agv(int agv_num, std::string dest) {
+void AriacCompetition::unlock_agv(int agv_num) {
+  std::string srv_name = "/ariac/agv" + std::to_string(agv_num) + "_unlock_tray";
+
+    std::shared_ptr<rclcpp::Node> node =
+        rclcpp::Node::make_shared("unlock_agv_client");
+    
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client =
+        node->create_client<std_srvs::srv::Trigger>(srv_name);
+
+    auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+
+    while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+      if (!rclcpp::ok()) {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Interrupted while waiting for the service. Exiting.");
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(),
+                         "Service not available, waiting again...");
+    }
+
+    auto result = client->async_send_request(request);
+
+    if (rclcpp::spin_until_future_complete(node, result) ==
+        rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_INFO_STREAM(this->get_logger(),"Unlocked AGV " << agv_num);
+    } else {
+      RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
+    }
+}
+
+void AriacCompetition::move_agv(int agv_num, int dest) {
   AriacCompetition::lock_agv(agv_num);
-  available_agv.erase(std::find(available_agv.begin(), available_agv.end(), agv_num));
-  RCLCPP_INFO_STREAM(this->get_logger(),"Move AGV " << agv_num << " to " << dest);
+  std::string srv_name = "/ariac/move_agv" + std::to_string(agv_num);
+
+    std::shared_ptr<rclcpp::Node> node =
+        rclcpp::Node::make_shared("move_agv_client");
+    
+    rclcpp::Client<ariac_msgs::srv::MoveAGV>::SharedPtr client =
+        node->create_client<ariac_msgs::srv::MoveAGV>(srv_name);
+
+    auto request = std::make_shared<ariac_msgs::srv::MoveAGV::Request>();
+
+    request->location = dest;
+
+    while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+      if (!rclcpp::ok()) {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Interrupted while waiting for the service. Exiting.");
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(),
+                         "Service not available, waiting again...");
+    }
+
+    auto result = client->async_send_request(request);
+
+    if (rclcpp::spin_until_future_complete(node, result) ==
+        rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_INFO_STREAM(this->get_logger(),"Moved AGV " << agv_num << " to " << ConvertDestinationToString(agv_num,dest));
+    } else {
+      RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
+    }
 }
 
 int AriacCompetition::determine_agv(int station_num) {
@@ -694,6 +795,46 @@ void AriacCompetition::right_bins_camera_cb(
 
     right_bins_parts_ = msg->part_poses;
     right_bins_camera_pose_ = msg->sensor_pose;
+}
+
+void AriacCompetition::kts1_rgb_camera_cb(
+    const sensor_msgs::msg::Image::ConstSharedPtr msg){
+    if (!kts1_rgb_camera_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from kts1 camera");
+        kts1_rgb_camera_received_data = true;
+    }
+    kts1_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+}
+
+void AriacCompetition::kts2_rgb_camera_cb(
+    const sensor_msgs::msg::Image::ConstSharedPtr msg){
+    if (!kts2_rgb_camera_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from kts2 camera");
+        kts2_rgb_camera_received_data = true;
+    }
+    kts2_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+}
+
+void AriacCompetition::left_bins_rgb_camera_cb(
+    const sensor_msgs::msg::Image::ConstSharedPtr msg){
+    if (!left_bins_rgb_camera_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from left bins camera");
+        left_bins_rgb_camera_received_data = true;
+    }
+    left_bins_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+}
+
+void AriacCompetition::right_bins_rgb_camera_cb(
+    const sensor_msgs::msg::Image::ConstSharedPtr msg){
+    if (!right_bins_rgb_camera_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from right bins camera");
+        right_bins_rgb_camera_received_data = true;
+    }
+    right_bins_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
 }
 
 void AriacCompetition::move_floor_robot_home_client(){
