@@ -19,10 +19,12 @@ std::vector<int> tray_detect(cv::Mat frame){
     
     std::vector<int> markerIDs;
     std::vector<std::vector<cv::Point2f>> corners, rejected;
-    cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();
-    cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
-    cv::aruco::ArucoDetector detector(dictionary, detectorParams);
-    detector.detectMarkers(img, corners, markerIDs, rejected);
+    // cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();
+    cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+    cv::aruco::detectMarkers(img, dictionary, corners, markerIDs);
+    // cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+    // cv::aruco::ArucoDetector detector(dictionary, detectorParams);
+    // detector.detectMarkers(img, corners, markerIDs, rejected);
 
     cv::Mat outputImage = im.clone();
     // cv::aruco::drawDetectedMarkers(outputImage, corners, markerIDs);

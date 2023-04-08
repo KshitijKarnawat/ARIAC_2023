@@ -213,11 +213,11 @@ private:
   };
 
   std::map<int, std::vector<float>> tray_positions_ = {
-      {0, std::vector<float>{0.1, -0.1, 0.05}},
-      {1, std::vector<float>{0.1, -0.1, 0.05}},
-      {2, std::vector<float>{0.1, -0.1, 0.05}},
-      {3, std::vector<float>{0.1, -0.1, 0.05}},
-      {4, std::vector<float>{0.1, -0.1, 0.05}},
-      {5, std::vector<float>{0.1, -0.1, 0.05}},
+      {0, std::vector<float>{-0.87, -5.84, 0.734990}},
+      {1, std::vector<float>{-1.3, -5.84, 0.734990}},
+      {2, std::vector<float>{-1.730, -5.84, 0.734990}},
+      {3, std::vector<float>{-1.730, 5.84, 0.734990}},
+      {4, std::vector<float>{-1.3, 5.84, 0.734990}},
+      {5, std::vector<float>{-0.87, 5.84, 0.734990}},
   };
 };

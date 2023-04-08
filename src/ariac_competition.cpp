@@ -21,7 +21,7 @@
 
 #include "../include/group3/ariac_competition.hpp"
 #include "../include/group3/floor_robot.hpp"
-// #include "../include/group3/tray_id_detect.hpp"
+#include "../include/group3/tray_id_detect.hpp"
 
 AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
   competition_state_sub_ =
@@ -429,15 +429,7 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   std::string part_info;
 
   move_floor_robot_home_client();
-  if (floor_gripper_state_.type != "tray_gripper")
-  {
-      floor_change_gripper_client("trays","kts2");
-  }
   floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
-  if (floor_gripper_state_.type != "part_gripper")
-  {
-      floor_change_gripper_client("parts","kts2");
-  }
 
   int count = 0;
   for (auto i : keys){
@@ -913,56 +905,35 @@ void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
 
   auto request = std::make_shared<group3::srv::FloorPickTray::Request>();
 
-  bool found_tray = false;
+  // bool found_tray = false;
 
   std::vector<int> kts2_vec;
-
   tray_aruco_id = tray_detect(kts1_rgb_camera_image_);
   kts2_vec = tray_detect(kts2_rgb_camera_image_);
-  tray_aruco_id.insert(tray_aruco_id.end(), kts2_vec_.begin(), kts2_vec.end());
+  tray_aruco_id.insert(tray_aruco_id.end(), kts2_vec.begin(), kts2_vec.end());
+  RCLCPP_INFO_STREAM(this->get_logger(),"After insert funtion");
 
   auto tray_it = std::find(tray_aruco_id.begin(), tray_aruco_id.end(), tray_id);
-  auto tray_idx = tray_aruco_id.begin() - tray_it;
+  RCLCPP_INFO_STREAM(this->get_logger(),"After find");
+  auto tray_idx = tray_it -tray_aruco_id.begin();
 
   if (tray_idx < 3) {
       request->station = "kts1";
-      request->tray_pose = tray_idx;
+      request->tray_pose = kts1_trays_[tray_idx];
       request->camera_pose = kts1_camera_pose_;
-
-
+      if (floor_gripper_state_.type != "tray_gripper")
+      {
+      floor_change_gripper_client("trays","kts1");
+      }
   } else {
       request->station = "kts2";
-      request->tray_pose = tray_idx;
+      request->tray_pose = kts2_trays_[tray_idx-3];
       request->camera_pose = kts2_camera_pose_;
+      if (floor_gripper_state_.type != "tray_gripper")
+      {
+      floor_change_gripper_client("trays","kts2");
+      }
   }
-
-
-  // for (auto tray : kts1_trays_)
-  //   {
-  //     if (tray_id == 1)
-  //     {
-  //         request->station = "kts1";
-  //         request->tray_pose = tray;
-  //         request->camera_pose = kts1_camera_pose_;
-  //         found_tray = true;
-  //         break;
-  //     }
-  //   }
-  //   // Check table 2
-  //   if (!found_tray)
-  //   {
-  //     for (auto tray : kts2_trays_)
-  //     {
-  //         if (tray_id == 3)
-  //         {
-  //             request->station = "kts2";
-  //             request->tray_pose = tray;
-  //             request->camera_pose = kts2_camera_pose_;
-  //             found_tray = true;
-  //             break;
-  //         }
-  //     }
-  //   }
 
   request->tray_id = tray_id;
   request->agv_num = agv_num;
@@ -984,6 +955,7 @@ void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
   } else {
     RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to pickup tray");
   }
+  client.reset();
 }
 
 bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type){
@@ -1053,42 +1025,44 @@ bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type){
     RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to pickup tray");
     return false;
   }
+  client.reset();
 }
 
 bool AriacCompetition::floor_place_part_client(int agv_num, int quadrant){
-    std::string srv_name = "/competitor/floor_place_part";
-  
-    std::shared_ptr<rclcpp::Node> node =
-        rclcpp::Node::make_shared("floor_place_part_client_");
-    
-    rclcpp::Client<group3::srv::FloorPlacePart>::SharedPtr client =
-        node->create_client<group3::srv::FloorPlacePart>(srv_name);
-  
-    auto request = std::make_shared<group3::srv::FloorPlacePart::Request>();
+  std::string srv_name = "/competitor/floor_place_part";
 
-    request->agv_num = agv_num;
-    request->quadrant = quadrant;
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("floor_place_part_client_");
   
-    while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
-      if (!rclcpp::ok()) {
-        RCLCPP_ERROR(this->get_logger(),
-                      "Interrupted while waiting for the service. Exiting.");
-        return false;
-      }
-      RCLCPP_INFO_STREAM(this->get_logger(),
-                          "Service not available, waiting again...");
-    }
-  
-    auto result = client->async_send_request(request);
-  
-    if (rclcpp::spin_until_future_complete(node, result) ==
-        rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO_STREAM(this->get_logger(), "Successfully Placed Part on Kit Tray");
-      return true;
-    } else {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to place part on kit tray");
+  rclcpp::Client<group3::srv::FloorPlacePart>::SharedPtr client =
+      node->create_client<group3::srv::FloorPlacePart>(srv_name);
+
+  auto request = std::make_shared<group3::srv::FloorPlacePart::Request>();
+
+  request->agv_num = agv_num;
+  request->quadrant = quadrant;
+
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
       return false;
     }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(), "Successfully Placed Part on Kit Tray");
+    return true;
+  } else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to place part on kit tray");
+    return false;
+  }
+  client.reset();
 }
 
 // int main(int argc, char *argv[])

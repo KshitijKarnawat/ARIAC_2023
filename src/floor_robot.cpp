@@ -549,25 +549,18 @@ void FloorRobot::FloorRobotPickandPlaceTray(
 
     uint tray_id = req->tray_id;
     uint agv_num = req->agv_num;
-    float tray_camera_pose = tray_positions_[req->tray_pose];
-    auto tray_pose = BuildPose(tray_camera_pose[0], tray_camera_pose[1], tray_camera_pose[2], SetRobotOrientation(3.14));
-    // RCLCPP_INFO_STREAM(this->get_logger(), "Tray pose x: " << tray_camera_pose.position.x << " y: " << tray_camera_pose.position.y << " z: " << tray_camera_pose.position.z);
+    // std::vector<float> tray_camera_pose = tray_positions_[req->tray_pose];
+    geometry_msgs::msg::Pose tray_camera_pose = req->tray_pose;
+    // auto tray_pose = BuildPose(tray_camera_pose[0], tray_camera_pose[1], tray_camera_pose[2], SetRobotOrientation(3.14));
     geometry_msgs::msg::Pose camera_pose_ = req->camera_pose;
-    // RCLCPP_INFO_STREAM(this->get_logger(), "Camera pose x: " << camera_pose_.position.x << " y: " << camera_pose_.position.y << " z: " << camera_pose_.position.z);
     std::string station = req->station;
-    // Check if kit tray is on one of the two tables
-    // geometry_msgs::msg::Pose tray_pose;
+    geometry_msgs::msg::Pose tray_pose;
 
     // tray_pose = tray_camera_pose;
-    // tray_pose = MultiplyPose(camera_pose_, tray_camera_pose);
-    // RCLCPP_INFO_STREAM(this->get_logger(), "MTray pose x: " << tray_pose.position.x << " y: " << tray_pose.position.y << " z: " << tray_pose.position.z);
+    tray_pose = MultiplyPose(camera_pose_, tray_camera_pose);
 
-    
-    double tray_rotation = 3.14;//GetYaw(tray_pose);
+    double tray_rotation = GetYaw(tray_pose); //3.14;
 
-    // RCLCPP_INFO_STREAM(this->get_logger(), "Tray rotation: " << tray_rotation);
-
-    // Move to tray
     std::vector<geometry_msgs::msg::Pose> waypoints;
 
     waypoints.push_back(BuildPose(tray_pose.position.x, tray_pose.position.y,
