@@ -25,6 +25,7 @@ find_package(moveit_ros_planning_interface REQUIRED)
 find_package(shape_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(builtin_interfaces REQUIRED)
+find_package(OpenCV REQUIRED)
 
 set(srv_files
   "srv/FloorChangeGripper.srv"
@@ -51,7 +52,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(group3_exe src/ariac_competition.cpp src/floor_robot.cpp)
-ament_target_dependencies(group3_exe rclcpp ariac_msgs std_srvs geometry_msgs std_msgs moveit_ros_planning_interface tf2 orocos_kdl tf2_ros tf2_geometry_msgs shape_msgs)
+ament_target_dependencies(group3_exe rclcpp ariac_msgs std_srvs geometry_msgs std_msgs moveit_ros_planning_interface tf2 orocos_kdl tf2_ros tf2_geometry_msgs shape_msgs OpenCV cv_bridge)
 
 rosidl_target_interfaces(group3_exe ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
