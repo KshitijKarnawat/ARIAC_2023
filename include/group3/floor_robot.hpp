@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <array>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
@@ -206,4 +207,17 @@ private:
       {"floor_wrist_1_joint", -1.57},
       {"floor_wrist_2_joint", -1.57},
       {"floor_wrist_3_joint", 0.0}};
+
+  std::map<int, std::vector<float>> bin_quadrant_positions_ = {
+      {1, std::vector<float>{0.1, -0.1, 0.05}},
+  };
+
+  std::map<int, std::vector<float>> tray_positions_ = {
+      {0, std::vector<float>{0.1, -0.1, 0.05}},
+      {1, std::vector<float>{0.1, -0.1, 0.05}},
+      {2, std::vector<float>{0.1, -0.1, 0.05}},
+      {3, std::vector<float>{0.1, -0.1, 0.05}},
+      {4, std::vector<float>{0.1, -0.1, 0.05}},
+      {5, std::vector<float>{0.1, -0.1, 0.05}},
+  };
 };
