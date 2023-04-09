@@ -82,6 +82,10 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
       "/ariac/sensors/right_bins_rgb_camera/rgb_image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::right_bins_rgb_camera_cb, this, std::placeholders::_1), options);
 
+  floor_gripper_state_sub_ = this->create_subscription<ariac_msgs::msg::VacuumGripperState>(
+        "/ariac/floor_robot_gripper_state", rclcpp::SensorDataQoS(),
+        std::bind(&AriacCompetition::floor_gripper_state_cb, this, std::placeholders::_1), options);
+
   RCLCPP_INFO(this->get_logger(), "Initialization successful.");
 
   end_competition_timer_ = this->create_wall_timer(
@@ -430,6 +434,11 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
 
   move_floor_robot_home_client();
   floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
+  if (floor_gripper_state_.type != "part_gripper")
+      {
+      floor_change_gripper_client("parts","kts2");
+      }
+
 
   int count = 0;
   for (auto i : keys){

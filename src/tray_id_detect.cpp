@@ -1,5 +1,4 @@
 #include "tray_id_detect.hpp"
-// #include <type_traits>
 
 std::vector<int> tray_detect(cv::Mat frame){
 
