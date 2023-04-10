@@ -280,16 +280,16 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
 
 void AriacCompetition::populate_bin_part(){
   AriacCompetition::setup_map();
-  std::vector<std::vector<int>> rightbin = rightbin(right_bins_rgb_camera_image_);
-  std::vector<std::vector<int>> leftbin = leftbin(left_bins_rgb_camera_image_);
+  std::vector<std::vector<int>> right_bin = rightbin(right_bins_rgb_camera_image_);
+  std::vector<std::vector<int>> left_bin = leftbin(left_bins_rgb_camera_image_);
   int count_right = 0;
   int count_left = 0;
-  for (auto part : rightbin){
+  for (auto part : right_bin){
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = right_bins_parts_[count_right];
     count_right++;
   }
-  for (auto part : leftbin){
+  for (auto part : left_bin){
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = left_bins_parts_[count_left];
     count_left++;

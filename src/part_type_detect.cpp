@@ -1,4 +1,4 @@
-#include "part_detect_type.hpp"
+#include "part_type_detect.hpp"
 
 int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     int type;
@@ -9,8 +9,8 @@ int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     int h = rect.height;
 
     cv::rectangle(img, rect, cv::Scalar(0, 255, 0), 2);
-    cv::imshow("uncut image", img); 
-    cv::waitKey(0);
+    // cv::imshow("uncut image", img); 
+    // cv::waitKey(0);
 
     cv::Mat im = img.clone();
     im = im(cv::Range(y+1,y+h+1), cv::Range(x+1,x+w+1));
@@ -43,17 +43,17 @@ int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     }
 
     if (count == 2) {
-        type = 13;  // Regulator
+        type = ariac_msgs::msg::Part::REGULATOR; //13 - Regulator
     } else if (count == 1) {
-        if (perimeter < 155 && 57<area_gray<214) {
-            type = 10;  // Battery
+        if (perimeter < 155 && 57 < area_gray && area_gray < 214) {
+            type = ariac_msgs::msg::Part::BATTERY; //10 - Battery
         } else if (area_gray < 20) {
-            type = 11;  // Pump
-        } else if (perimeter > 151 && 23<area_gray<203) {
-            type = 12;  // Sensor
+            type = ariac_msgs::msg::Part::PUMP;   //11 - Pump
+        } else if (perimeter > 151 && 23 < area_gray  && area_gray < 203) {
+            type = ariac_msgs::msg::Part::SENSOR;  //12 - Sensor
         }
     } else if (count == 0) {
-        type = 11;  // Pump
+        type = ariac_msgs::msg::Part::PUMP;  //11 - Pump
     } 
 
     return type;
@@ -70,19 +70,19 @@ std::vector<int> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Po
     cv::Vec3b hsv = img_hsv.at<cv::Vec3b>(y_m, x_m);
     
     if (hsv[0]>10 && hsv[0]<25) {
-        part_clr = 3;   // Orange
+        part_clr = ariac_msgs::msg::Part::ORANGE;  // 3 - Orange
         part_type = detect_type(new_image.clone(), c);
     } else if(hsv[0]>=130 && hsv[0]<170) {
-        part_clr = 4;   // Purple
+        part_clr = ariac_msgs::msg::Part::PURPLE;  // 4 - Purple
         part_type = detect_type(new_image.clone(), c);
     } else if (hsv[0]>=90 && hsv[0]<130) {
-        part_clr = 2;   // Blue
+        part_clr = ariac_msgs::msg::Part::BLUE;  // 2 - Blue
         part_type = detect_type(new_image.clone(), c);
     } else if (hsv[0]>=0 && hsv[0]<=10) { 
-        part_clr = 0;    // Red
+        part_clr = ariac_msgs::msg::Part::RED;  // 0 - Red
         part_type = detect_type(new_image.clone(), c);
     } else if (hsv[0]>36 && hsv[0]<89) {
-        part_clr = 1;   // Green  
+        part_clr = ariac_msgs::msg::Part::GREEN;  // 1 - Green  
         part_type = detect_type(new_image.clone(), c);
     }
     clr_type.push_back(part_clr);

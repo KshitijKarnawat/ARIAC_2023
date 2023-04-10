@@ -107,7 +107,7 @@ class AriacCompetition : public rclcpp::Node {
 
         struct BinQuadrant {
             int part_type_clr = -1;
-            geometry_msgs::msg::PoseStamped part_pose;
+            geometry_msgs::msg::Pose part_pose;
         };
 
         std::vector<int> conveyor_parts;
