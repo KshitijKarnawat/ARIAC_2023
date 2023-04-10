@@ -60,6 +60,7 @@
 #include "group3/srv/floor_change_gripper.hpp"
 #include "group3/srv/floor_pick_tray.hpp"
 #include "group3/srv/floor_pick_part_bin.hpp"
+#include "group3/srv/floor_pick_part_conv.hpp"
 #include "group3/srv/floor_place_part.hpp"
 
 class FloorRobot : public rclcpp::Node
@@ -86,6 +87,10 @@ public:
   void FloorRobotPickBinPart(
     group3::srv::FloorPickPartBin::Request::SharedPtr req,
     group3::srv::FloorPickPartBin::Response::SharedPtr res);
+
+  void FloorRobotPickConvPart(
+    group3::srv::FloorPickPartConv::Request::SharedPtr req,
+    group3::srv::FloorPickPartConv::Response::SharedPtr res);
 
   void FloorRobotPlacePartOnKitTray(
     group3::srv::FloorPlacePart::Request::SharedPtr req,
@@ -130,6 +135,7 @@ private:
   rclcpp::Service<group3::srv::FloorChangeGripper>::SharedPtr floor_robot_change_gripper_srv_;
   rclcpp::Service<group3::srv::FloorPickTray>::SharedPtr floor_pick_place_tray_srv_;
   rclcpp::Service<group3::srv::FloorPickPartBin>::SharedPtr floor_pick_part_bin_srv_;
+  rclcpp::Service<group3::srv::FloorPickPartConv>::SharedPtr floor_pick_part_conv_srv_;
   rclcpp::Service<group3::srv::FloorPlacePart>::SharedPtr floor_place_part_srv_;
 
   // Gripper State Callback

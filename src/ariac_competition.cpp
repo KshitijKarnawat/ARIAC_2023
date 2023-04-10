@@ -22,6 +22,7 @@
 #include "../include/group3/ariac_competition.hpp"
 #include "../include/group3/floor_robot.hpp"
 #include "../include/group3/tray_id_detect.hpp"
+#include "../include/group3/part_type_detect.hpp"
 
 AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
   competition_state_sub_ =
@@ -35,10 +36,10 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
       std::bind(&AriacCompetition::order_callback, this,
               std::placeholders::_1));
 
-  bin_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::BinParts>(
-      "/ariac/bin_parts", 10,
-      std::bind(&AriacCompetition::bin_parts_callback, this,
-              std::placeholders::_1));
+  // bin_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::BinParts>(
+  //     "/ariac/bin_parts", 10,
+  //     std::bind(&AriacCompetition::bin_parts_callback, this,
+  //             std::placeholders::_1));
 
   conveyor_parts_subscriber_ = this->create_subscription<ariac_msgs::msg::ConveyorParts>(
       "/ariac/conveyor_parts", 10,
@@ -250,31 +251,50 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
   }
 }
 
-void AriacCompetition::bin_parts_callback(ariac_msgs::msg::BinParts::SharedPtr msg) {
-  AriacCompetition::setup_map();
+// void AriacCompetition::bin_parts_callback(ariac_msgs::msg::BinParts::SharedPtr msg) {
+//   AriacCompetition::setup_map();
 
-  int idx_start, idx_end;
-  for (unsigned int bin_idx = 0; bin_idx < msg->bins.size(); bin_idx++) { 
-    // Key value for bin_number bin in bin_map
-    idx_start = 9*((msg->bins[bin_idx].bin_number) - 1);
-    // Tracks the 9 locations for the bin_number bin in bin_map
-    idx_end = idx_start + 9;
+//   int idx_start, idx_end;
+//   for (unsigned int bin_idx = 0; bin_idx < msg->bins.size(); bin_idx++) { 
+//     // Key value for bin_number bin in bin_map
+//     idx_start = 9*((msg->bins[bin_idx].bin_number) - 1);
+//     // Tracks the 9 locations for the bin_number bin in bin_map
+//     idx_end = idx_start + 9;
 
-    for (unsigned int part_idx = 0; part_idx < msg->bins[bin_idx].parts.size(); part_idx++){
-      for (unsigned int qty = 0; qty < msg->bins[bin_idx].parts[part_idx].quantity; qty++){
-        for (int a = idx_start; a < idx_end; a++){
-          if (bin_map[a].part_type_clr == -1){
-            bin_map[a].part_type_clr = (msg->bins[bin_idx].parts[part_idx].part.type)*10 + (msg->bins[bin_idx].parts[part_idx].part.color);
-            break;
-            // TODO: Include pose information later
-          }
-        }
-      }
-    }
-  }
+//     for (unsigned int part_idx = 0; part_idx < msg->bins[bin_idx].parts.size(); part_idx++){
+//       for (unsigned int qty = 0; qty < msg->bins[bin_idx].parts[part_idx].quantity; qty++){
+//         for (int a = idx_start; a < idx_end; a++){
+//           if (bin_map[a].part_type_clr == -1){
+//             bin_map[a].part_type_clr = (msg->bins[bin_idx].parts[part_idx].part.type)*10 + (msg->bins[bin_idx].parts[part_idx].part.color);
+//             break;
+//             // TODO: Include pose information later
+//           }
+//         }
+//       }
+//     }
+//   }
  
+//   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Part Information populated");
+//   bin_parts_subscriber_.reset();
+// }
+
+void AriacCompetition::populate_bin_part(){
+  AriacCompetition::setup_map();
+  std::vector<std::vector<int>> rightbin = rightbin(right_bins_rgb_camera_image_);
+  std::vector<std::vector<int>> leftbin = leftbin(left_bins_rgb_camera_image_);
+  int count_right = 0;
+  int count_left = 0;
+  for (auto part : rightbin){
+    bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
+    bin_map[part[2]].part_pose = right_bins_parts_[count_right];
+    count_right++;
+  }
+  for (auto part : leftbin){
+    bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
+    bin_map[part[2]].part_pose = left_bins_parts_[count_left];
+    count_left++;
+  }
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Part Information populated");
-  bin_parts_subscriber_.reset();
 }
 
 void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::SharedPtr msg) {
@@ -403,6 +423,7 @@ void AriacCompetition::process_order() {
 }
 
 void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
+  populate_bin_part();
   int type_color_key;  // Stores the key of the specific part in the bin map
   std::vector<std::array<int, 2>> keys;
   int type_color;   // Stores type and color info: For ex: 101 -> Battery Green
@@ -825,7 +846,7 @@ void AriacCompetition::left_bins_rgb_camera_cb(
         RCLCPP_INFO(get_logger(), "Received data from left bins camera");
         left_bins_rgb_camera_received_data = true;
     }
-    left_bins_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+    left_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
 }
 
 void AriacCompetition::right_bins_rgb_camera_cb(
@@ -835,7 +856,7 @@ void AriacCompetition::right_bins_rgb_camera_cb(
         RCLCPP_INFO(get_logger(), "Received data from right bins camera");
         right_bins_rgb_camera_received_data = true;
     }
-    right_bins_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+    right_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
 }
 
 void AriacCompetition::move_floor_robot_home_client(){
