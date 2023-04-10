@@ -1,8 +1,7 @@
-"../include/group3/part_detect_type.hpp"
+#include "part_detect_type.hpp"
 
-
-std::string detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
-    std::string part_type;
+int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
+    int type;
     cv::Rect rect = cv::boundingRect(cnt);
     int x = rect.x;
     int y = rect.y;
@@ -44,59 +43,58 @@ std::string detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     }
 
     if (count == 2) {
-        part_type = "Regulator";
+        type = 13;  // Regulator
     } else if (count == 1) {
         if (perimeter < 155 && 57<area_gray<214) {
-            part_type = "Battery";
+            type = 10;  // Battery
         } else if (area_gray < 20) {
-            part_type = "Pump";
+            type = 11;  // Pump
         } else if (perimeter > 151 && 23<area_gray<203) {
-            part_type = "Sensor";
+            type = 12;  // Sensor
         }
     } else if (count == 0) {
-        part_type = "Pump";
-    } else {
-        part_type = "None";
-    }
+        type = 11;  // Pump
+    } 
 
-    return part_type;
+    return type;
 }
 
 
-std::vector<std::string> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Point> c, int x_m, int y_m){
-    std::string part_clr;
-    std::string part_type;
-    std::vector<std::string> p;
+std::vector<int> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Point> c, int x_m, int y_m){
+    int part_clr;
+    int part_type;
+    std::vector<int> clr_type;
     cv::Mat img_hsv;
     cv::cvtColor(img.clone(), img_hsv, cv::COLOR_BGR2HSV);
     
     cv::Vec3b hsv = img_hsv.at<cv::Vec3b>(y_m, x_m);
     
     if (hsv[0]>10 && hsv[0]<25) {
-        part_clr = "Orange";
+        part_clr = 3;   // Orange
         part_type = detect_type(new_image.clone(), c);
     } else if(hsv[0]>=130 && hsv[0]<170) {
-        part_clr = "Purple";
+        part_clr = 4;   // Purple
         part_type = detect_type(new_image.clone(), c);
     } else if (hsv[0]>=90 && hsv[0]<130) {
-        part_clr = "Blue";
+        part_clr = 2;   // Blue
         part_type = detect_type(new_image.clone(), c);
     } else if (hsv[0]>=0 && hsv[0]<=10) { 
-        part_clr = "Red";
+        part_clr = 0;    // Red
         part_type = detect_type(new_image.clone(), c);
     } else if (hsv[0]>36 && hsv[0]<89) {
-        part_clr = "Green";
+        part_clr = 1;   // Green  
         part_type = detect_type(new_image.clone(), c);
     }
-    p.push_back(part_clr);
-    p.push_back(part_type);
+    clr_type.push_back(part_clr);
+    clr_type.push_back(part_type);
 
-    return p;
+    return clr_type;
 }
     
 
-void rightbin(cv::Mat img){
-    std::vector<std::string> p1;
+std::vector<std::vector<int>> rightbin(cv::Mat img){
+    std::vector<std::vector<int>> right_bin_info;
+    std::vector<int> part_info;
     cv::Mat img_bin_tr = img(cv::Range(28,223), cv::Range(356,548));
     cv::Mat img_bin_tl = img(cv::Range(28,223), cv::Range(118,308));
     cv::Mat img_bin_br = img(cv::Range(267,458), cv::Range(356,548));
@@ -166,7 +164,7 @@ void rightbin(cv::Mat img){
         findContours(blur, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
         int x_m;
         int y_m;
-        int q;
+        int quadrant;
 
         for (auto c : contours) {
             auto area_cnt = cv::contourArea(c);
@@ -178,50 +176,47 @@ void rightbin(cv::Mat img){
             }
 
             if (area_cnt > 500 && area_cnt < 3000) {
-                std::cout << (137<x_m && x_m<195);
                 if ((137<=x_m && x_m<=195) &&  (130<=y_m && y_m<=192)){
-                    q =  9*i + 9;
+                    quadrant =  9*i + 9;
                 }
                 else if ((0<=x_m && x_m<=70) &&  (0<=y_m && y_m<=65)){
-                    q =  9*i + 1;
+                    quadrant =  9*i + 1;
                 }
                 else if ((71<=x_m && x_m<=135) &&  (0<=y_m && y_m<=65)){
-                    q =  9*i + 2;
+                    quadrant =  9*i + 2;
                 }
                 else if ((137<=x_m && x_m<=195) &&  (0<=y_m && y_m<=65)){
-                    q =  9*i + 3;
+                    quadrant =  9*i + 3;
                 }
                 else if ((0<=x_m && x_m<=70) &&  (69<=y_m && y_m<=126)){
-                    q =  9*i + 4;
+                    quadrant =  9*i + 4;
                 }
                 else if ((71<=x_m && x_m<=135) &&  (69<=y_m && y_m<=126)){
-                    q =  9*i + 5;
+                    quadrant =  9*i + 5;
                 }
                 else if ((137<=x_m && x_m<=195) &&  (69<=y_m && y_m<=126)){
-                    q =  9*i + 6;
+                    quadrant =  9*i + 6;
                 }
                 else if ((0<=x_m && x_m<=70) &&  (130<=y_m && y_m<=192)){
-                    q =  9*i + 7;
+                    quadrant =  9*i + 7;
                 }
                 else if ((71<=x_m && x_m<=135) &&  (130<=y_m && y_m<=192)){
-                    q =  9*i + 8;
+                    quadrant =  9*i + 8;
                 }
                 
-                p1 = detect_color(img, new_image, c, x_m, y_m);
-                std::cout << "Quadrant is " << q << "\n";
-                std::cout << p1[0] << " " << p1[1] << "\n";
-                std::cout <<"\n";
-                
-
-
+                part_info = detect_color(img, new_image, c, x_m, y_m);
+                part_info.push_back(quadrant);
+                right_bin_info.push_back(part_info);
             }
         }
         i++;
     }
+    return right_bin_info;
 }
 
-void leftbin(cv::Mat img){
-    std::vector<std::string> p1;
+std::vector<std::vector<int>> leftbin(cv::Mat img){
+    std::vector<std::vector<int>> left_bin_info;
+    std::vector<int> part_info;
     cv::Mat img_bin_tr = img(cv::Range(28,223), cv::Range(356,548));
     cv::Mat img_bin_tl = img(cv::Range(28,223), cv::Range(118,308));
     cv::Mat img_bin_br = img(cv::Range(267,458), cv::Range(356,548));
@@ -291,7 +286,7 @@ void leftbin(cv::Mat img){
         findContours(blur, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
         int x_m;
         int y_m;
-        int q;
+        int quadrant;
 
         for (auto c : contours) {
             auto area_cnt = cv::contourArea(c);
@@ -303,52 +298,50 @@ void leftbin(cv::Mat img){
             }
 
             if (area_cnt > 500 && area_cnt < 3000) {
-                std::cout << (137<x_m && x_m<195);
                 if ((137<=x_m && x_m<=195) &&  (130<=y_m && y_m<=192)){
-                    q =  9*i + 45;
+                    quadrant =  9*i + 45;
                 }
                 else if ((0<=x_m && x_m<=70) &&  (0<=y_m && y_m<=65)){
-                    q =  9*i + 37;
+                    quadrant =  9*i + 37;
                 }
                 else if ((71<=x_m && x_m<=135) &&  (0<=y_m && y_m<=65)){
-                    q =  9*i + 38;
+                    quadrant =  9*i + 38;
                 }
                 else if ((137<=x_m && x_m<=195) &&  (0<=y_m && y_m<=65)){
-                    q =  9*i + 39;
+                    quadrant =  9*i + 39;
                 }
                 else if ((0<=x_m && x_m<=70) &&  (69<=y_m && y_m<=126)){
-                    q =  9*i + 40;
+                    quadrant =  9*i + 40;
                 }
                 else if ((71<=x_m && x_m<=135) &&  (69<=y_m && y_m<=126)){
-                    q =  9*i + 41;
+                    quadrant =  9*i + 41;
                 }
                 else if ((137<=x_m && x_m<=195) &&  (69<=y_m && y_m<=126)){
-                    q =  9*i + 42;
+                    quadrant =  9*i + 42;
                 }
                 else if ((0<=x_m && x_m<=70) &&  (130<=y_m && y_m<=192)){
-                    q =  9*i + 43;
+                    quadrant =  9*i + 43;
                 }
                 else if ((71<=x_m && x_m<=135) &&  (130<=y_m && y_m<=192)){
-                    q =  9*i + 44;
+                    quadrant =  9*i + 44;
                 }
                 
-                p1 = detect_color(img, new_image, c, x_m, y_m);
-                std::cout << "Quadrant is " << q << "\n";
-                std::cout << p1[0] << " " << p1[1] << "\n";
-                std::cout <<"\n";
+                part_info = detect_color(img, new_image, c, x_m, y_m);
+                part_info.push_back(quadrant);
                 
-
+                left_bin_info.push_back(part_info);
 
             }
         }
         i++;
     }
+    return left_bin_info;
 }
 
+// int main(){
+//     cv::Mat image = cv::imread("ariac_img.png", cv::IMREAD_COLOR);
+//     std::vector<std::vector<int>> info; 
+//     // rightbin(image.clone());
+//     info = rightbin(image.clone());
 
-int main(){
-    cv::Mat image = cv::imread("ariac_img.png", cv::IMREAD_COLOR);
-    
-    // rightbin(image.clone());
-    leftbin(image.clone());
-}
+// }

@@ -6,10 +6,10 @@
 #include <vector>
 #include <iostream>
 
-std::string detect_type(cv::Mat img, std::vector<cv::Point> cnt);
+int detect_type(cv::Mat img, std::vector<cv::Point> cnt);
 
-std::vector<std::string> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Point> c, int x_m, int y_m);
+std::vector<int> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Point> c, int x_m, int y_m);
 
-void rightbin(cv::Mat img);
+std::vector<std::vector<int>> rightbin(cv::Mat img);
 
-void leftbin(cv::Mat img);
+std::vector<std::vector<int>> leftbin(cv::Mat img);
