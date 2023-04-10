@@ -146,7 +146,7 @@ class AriacCompetition : public rclcpp::Node {
         * 
         * @param msg 
         */
-        void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr);
+        // void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr);
 
         /**
         * @brief  Callback function to retrieve conveyor part information
@@ -278,6 +278,8 @@ class AriacCompetition : public rclcpp::Node {
 
         bool floor_place_part_client(int agv_num, int quadrant);
 
+        void populate_bin_part();
+
     private:
         rclcpp::Subscription<ariac_msgs::msg::CompetitionState>::SharedPtr
             competition_state_sub_;
@@ -305,8 +307,8 @@ class AriacCompetition : public rclcpp::Node {
         // Sensor Images
         cv::Mat kts1_rgb_camera_image_;
         cv::Mat kts2_rgb_camera_image_;
-        cv::Mat left_bins_camera_image_;
-        cv::Mat right_bins_camera_image_;
+        cv::Mat left_bins_rgb_camera_image_;
+        cv::Mat right_bins_rgb_camera_image_;
 
         // Sensor poses
         geometry_msgs::msg::Pose kts1_camera_pose_;
