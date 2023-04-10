@@ -31,6 +31,7 @@ set(srv_files
   "srv/FloorChangeGripper.srv"
   "srv/FloorPickTray.srv"
   "srv/FloorPickPartBin.srv"
+  "srv/FloorPickPartConv.srv"
   "srv/FloorPlacePart.srv"
 )
 # find_package(opencv_python REQUIRED)

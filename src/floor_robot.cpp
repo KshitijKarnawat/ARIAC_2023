@@ -64,6 +64,12 @@ FloorRobot::FloorRobot()
         std::bind(
         &FloorRobot::FloorRobotPickBinPart, this,
         std::placeholders::_1, std::placeholders::_2));
+    
+    floor_pick_part_conv_srv_ = create_service<group3::srv::FloorPickPartConv>(
+        "/competitor/floor_pick_part_conv",
+        std::bind(
+        &FloorRobot::FloorRobotPickConvPart, this,
+        std::placeholders::_1, std::placeholders::_2));
 
     floor_place_part_srv_ = create_service<group3::srv::FloorPlacePart>(
         "/competitor/floor_place_part",
@@ -666,6 +672,55 @@ void FloorRobot::FloorRobotPickBinPart(
         }
         FloorRobotMovetoTarget();
     }
+
+    floor_robot_.setJointValueTarget("linear_actuator_joint", rail_positions_[bin_side]);
+    floor_robot_.setJointValueTarget("floor_shoulder_pan_joint", 0);
+    FloorRobotMovetoTarget();
+
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+                                  part_pose.position.z + 0.5, SetRobotOrientation(part_rotation)));
+
+    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+                                  part_pose.position.z + part_heights_[part_type] + pick_offset_, SetRobotOrientation(part_rotation)));
+
+    FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
+
+    FloorRobotSetGripperState(true);
+
+    FloorRobotWaitForAttach(3.0,waypoints);
+
+    // Add part to planning scene
+    std::string part_name = part_colors_[part_clr] + "_" + part_types_[part_type];
+    AddModelToPlanningScene(part_name, part_types_[part_type] + ".stl", part_pose);
+    floor_robot_.attachObject(part_name);
+    // floor_robot_attached_part_ = part_to_pick;
+
+    // Move up slightly
+    waypoints.clear();
+    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+                                  part_pose.position.z + 0.3, SetRobotOrientation(0)));
+
+    FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
+
+    res->success = true;
+}
+
+void FloorRobot::FloorRobotPickConvPart(
+    group3::srv::FloorPickPartConv::Request::SharedPtr req,
+    group3::srv::FloorPickPartConv::Response::SharedPtr res)
+{
+    uint part_clr = req->part_clr;
+    uint part_type = req->part_type;
+    std::string bin_side = req->bin_side;
+    geometry_msgs::msg::Pose camera_pose_ = req->camera_pose;
+    geometry_msgs::msg::Pose part_camera_pose = req->part_pose;
+
+    std::string station;
+    geometry_msgs::msg::Pose part_pose;
+    part_pose = MultiplyPose(camera_pose_, part_camera_pose);
+
+    double part_rotation = GetYaw(part_pose);
 
     floor_robot_.setJointValueTarget("linear_actuator_joint", rail_positions_[bin_side]);
     floor_robot_.setJointValueTarget("floor_shoulder_pan_joint", 0);
