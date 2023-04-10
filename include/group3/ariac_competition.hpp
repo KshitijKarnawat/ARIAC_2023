@@ -274,7 +274,7 @@ class AriacCompetition : public rclcpp::Node {
 
         void floor_picknplace_tray_client(int tray_id, int agv_num);
 
-        bool floor_pick_bin_part_client(int part_clr,int part_type);
+        bool floor_pick_bin_part_client(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
 
         bool floor_place_part_client(int agv_num, int quadrant);
 

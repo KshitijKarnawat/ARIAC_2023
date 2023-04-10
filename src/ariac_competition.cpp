@@ -280,8 +280,11 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
 
 void AriacCompetition::populate_bin_part(){
   AriacCompetition::setup_map();
+  RCLCPP_INFO_STREAM(this->get_logger(), "Bin map setup");
   std::vector<std::vector<int>> right_bin = rightbin(right_bins_rgb_camera_image_);
+  RCLCPP_INFO_STREAM(this->get_logger(), "Bin Right Vector Information populated");
   std::vector<std::vector<int>> left_bin = leftbin(left_bins_rgb_camera_image_);
+  RCLCPP_INFO_STREAM(this->get_logger(), "Bin Left Vector Information populated");
   int count_right = 0;
   int count_left = 0;
   for (auto part : right_bin){
@@ -289,12 +292,13 @@ void AriacCompetition::populate_bin_part(){
     bin_map[part[2]].part_pose = right_bins_parts_[count_right];
     count_right++;
   }
+  RCLCPP_INFO_STREAM(this->get_logger(), "Bin Right Information populated");
   for (auto part : left_bin){
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = left_bins_parts_[count_left];
     count_left++;
   }
-  RCLCPP_INFO_STREAM(this->get_logger(), "Bin Part Information populated");
+  RCLCPP_INFO_STREAM(this->get_logger(), "Bin Left Information populated");
 }
 
 void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::SharedPtr msg) {
@@ -423,10 +427,11 @@ void AriacCompetition::process_order() {
 }
 
 void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
-  populate_bin_part();
   int type_color_key;  // Stores the key of the specific part in the bin map
   std::vector<std::array<int, 2>> keys;
   int type_color;   // Stores type and color info: For ex: 101 -> Battery Green
+
+  populate_bin_part();
 
   for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
     type_color = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
@@ -455,11 +460,10 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
 
   move_floor_robot_home_client();
   floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
-  if (floor_gripper_state_.type != "part_gripper")
-      {
-      floor_change_gripper_client("parts","kts2");
-      }
-
+  // if (floor_gripper_state_.type != "part_gripper")
+  //     {
+  //     floor_change_gripper_client("parts","kts2");
+  //     }
 
   int count = 0;
   for (auto i : keys){
@@ -467,8 +471,8 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       continue;
     } else if (i[1] == 1) {
       // part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
-      RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << bin_map[i[0]].part_type_clr%10 << " " << bin_map[i[0]].part_type_clr/10);
-      floor_pick_bin_part_client((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10);
+      RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
+      floor_pick_bin_part_client((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
       // floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
     } else if (i[1] == 2) {
       part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
@@ -826,7 +830,7 @@ void AriacCompetition::kts1_rgb_camera_cb(
         RCLCPP_INFO(get_logger(), "Received data from kts1 camera");
         kts1_rgb_camera_received_data = true;
     }
-    kts1_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+    kts1_rgb_camera_image_ = cv_bridge::toCvShare(msg, "bgr8")->image;
 }
 
 void AriacCompetition::kts2_rgb_camera_cb(
@@ -836,7 +840,7 @@ void AriacCompetition::kts2_rgb_camera_cb(
         RCLCPP_INFO(get_logger(), "Received data from kts2 camera");
         kts2_rgb_camera_received_data = true;
     }
-    kts2_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+    kts2_rgb_camera_image_ = cv_bridge::toCvShare(msg, "bgr8")->image;
 }
 
 void AriacCompetition::left_bins_rgb_camera_cb(
@@ -846,7 +850,7 @@ void AriacCompetition::left_bins_rgb_camera_cb(
         RCLCPP_INFO(get_logger(), "Received data from left bins camera");
         left_bins_rgb_camera_received_data = true;
     }
-    left_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+    left_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, "bgr8")->image;
 }
 
 void AriacCompetition::right_bins_rgb_camera_cb(
@@ -856,7 +860,7 @@ void AriacCompetition::right_bins_rgb_camera_cb(
         RCLCPP_INFO(get_logger(), "Received data from right bins camera");
         right_bins_rgb_camera_received_data = true;
     }
-    right_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, msg->encoding)->image;
+    right_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, "bgr8")->image;
 }
 
 void AriacCompetition::move_floor_robot_home_client(){
@@ -988,7 +992,7 @@ void AriacCompetition::floor_picknplace_tray_client(int tray_id , int agv_num){
   client.reset();
 }
 
-bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type){
+bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad){
 
   std::string srv_name = "/competitor/floor_pick_part_bin";
 
@@ -1003,32 +1007,21 @@ bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type){
   bool found_part = false;
   std::string bin_side;
 
-  // Check left bins
-  for (auto part : left_bins_parts_)
-  {
-      if((part_type == 13 && part_clr == 0))
+  if (part_quad < 37) {
+      request->bin_side = "right_bins";
+      request->part_pose = part_pose;
+      request->camera_pose = right_bins_camera_pose_;
+      if (floor_gripper_state_.type != "part_gripper")
       {
-          found_part = true;
-          RCLCPP_INFO_STREAM(this->get_logger(), "Found part" << part_clr << " " << part_type);
-          request->part_pose = part;
-          request->camera_pose = left_bins_camera_pose_;
-          RCLCPP_INFO_STREAM(this->get_logger(), "Camera pose x:" << left_bins_camera_pose_.position.x << " y:" << left_bins_camera_pose_.position.y << " z:" << left_bins_camera_pose_.position.z);
-          request->bin_side = "left_bins";
-          break;
+      floor_change_gripper_client("parts","kts1");
       }
-  }
-  // Check right bins
-  if (!found_part)
-  {
-      for (auto part : right_bins_parts_)
+  } else {
+      request->bin_side = "left_bins";
+      request->part_pose = part_pose;
+      request->camera_pose = left_bins_camera_pose_;
+      if (floor_gripper_state_.type != "part_gripper")
       {
-          if ((part_type == 12 && part_clr == 0) || ( part_type == 10 && part_clr == 0))
-          {
-              request->part_pose = part;
-              request->camera_pose = right_bins_camera_pose_;
-              request->bin_side = "right_bins";
-              break;
-          }
+      floor_change_gripper_client("parts","kts2");
       }
   }
 
