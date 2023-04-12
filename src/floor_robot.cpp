@@ -14,6 +14,7 @@
  */
 
 #include "floor_robot.hpp"
+#include <chrono>
 
 FloorRobot::FloorRobot()
     : Node("floor_robot_node"),
@@ -710,28 +711,40 @@ void FloorRobot::FloorRobotPickConvPart(
     group3::srv::FloorPickPartConv::Request::SharedPtr req,
     group3::srv::FloorPickPartConv::Response::SharedPtr res)
 {
-    uint part_clr = req->part_clr;
-    uint part_type = req->part_type;
-    std::string bin_side = req->bin_side;
+    uint part_clr = 0;
+    uint part_type = 10;
+    float start_time = req->time;
     geometry_msgs::msg::Pose camera_pose_ = req->camera_pose;
     geometry_msgs::msg::Pose part_camera_pose = req->part_pose;
 
-    std::string station;
     geometry_msgs::msg::Pose part_pose;
     part_pose = MultiplyPose(camera_pose_, part_camera_pose);
 
     double part_rotation = GetYaw(part_pose);
 
-    floor_robot_.setJointValueTarget("linear_actuator_joint", rail_positions_[bin_side]);
-    floor_robot_.setJointValueTarget("floor_shoulder_pan_joint", 0);
+    // rclcpp::Time now = now().seconds();
+    float time_to_move = 4.2;
+    float speed = 0.4;
+
+    float distance = (now().seconds() - start_time + time_to_move)*speed;
+
+    floor_robot_.setJointValueTarget(conv_js_);
     FloorRobotMovetoTarget();
 
     std::vector<geometry_msgs::msg::Pose> waypoints;
-    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
-                                  part_pose.position.z + 0.5, SetRobotOrientation(part_rotation)));
 
-    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
-                                  part_pose.position.z + part_heights_[part_type] + pick_offset_, SetRobotOrientation(part_rotation)));
+    tf2::Quaternion tf_q;
+    tf_q.setRPY(0, -1.571, part_rotation);
+
+    geometry_msgs::msg::Quaternion q;
+
+    q.x = tf_q.x();
+    q.y = tf_q.y();
+    q.z = tf_q.z();
+    q.w = tf_q.w();
+
+    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y-distance,
+                                  part_pose.position.z, q));
 
     FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
 

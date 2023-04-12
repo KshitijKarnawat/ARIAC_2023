@@ -205,6 +205,16 @@ private:
       {"floor_wrist_2_joint", -1.57},
       {"floor_wrist_3_joint", 0.0}};
 
+  std::map<std::string, double> conv_js_ = {
+      {"linear_actuator_joint", 0},
+      {"floor_shoulder_pan_joint", 3.14},
+      {"floor_shoulder_lift_joint", -1.57},
+      {"floor_elbow_joint", 1.57},
+      {"floor_wrist_1_joint", -1.57},
+      {"floor_wrist_2_joint", -1.57},
+      {"floor_wrist_3_joint", 0.0},
+      {"floor_gripper_joint",0}};
+
   std::map<std::string, double> floor_kts2_js_ = {
       {"linear_actuator_joint", -4.0},
       {"floor_shoulder_pan_joint", -1.57},

@@ -1,9 +1,7 @@
-# Pick and Place Tray on AGV
+# Pick Part from Conveyor
 
-string bin_side
 geometry_msgs/Pose part_pose
 geometry_msgs/Pose camera_pose
-uint8 part_clr
-uint8 part_type
+float64 time
 ---
 bool success
