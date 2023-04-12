@@ -51,6 +51,7 @@
 #include <ariac_msgs/msg/conveyor_parts.hpp>
 #include <ariac_msgs/msg/basic_logical_camera_image.hpp>
 #include <ariac_msgs/msg/vacuum_gripper_state.hpp>
+#include <ariac_msgs/msg/break_beam_status.hpp>
 
 #include <ariac_msgs/srv/submit_order.hpp>
 #include <ariac_msgs/srv/move_agv.hpp>
@@ -69,6 +70,7 @@
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <rclcpp/time.hpp>
 
 #include <std_msgs/msg/bool.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -83,6 +85,9 @@
 #include "group3/srv/floor_pick_tray.hpp"
 #include "group3/srv/floor_pick_part_bin.hpp"
 #include "group3/srv/floor_place_part.hpp"
+
+#include "group3/msg/part.hpp"
+#include "group3/msg/parts.hpp"
 
 class Orders;
 
@@ -276,6 +281,8 @@ class AriacCompetition : public rclcpp::Node {
 
         bool floor_pick_bin_part_client(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
 
+        bool floor_pick_conv_part_client(geometry_msgs::msg::Pose part_pose,geometry_msgs::msg::Pose camera_pose,int detection_time);
+
         bool floor_place_part_client(int agv_num, int quadrant);
 
         void populate_bin_part();
@@ -291,6 +298,7 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<ariac_msgs::msg::Order>::SharedPtr order_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
+        rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
 
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts1_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts2_rgb_camera_sub_;
@@ -301,8 +309,16 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr left_bins_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr right_bins_camera_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr conv_camera_sub_;
 
-        rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam_sub_;
+
+        rclcpp::Subscription<group3::msg::Parts>::SharedPtr right_part_detector_sub_;
+        rclcpp::Subscription<group3::msg::Parts>::SharedPtr left_part_detector_sub_;
+
+        bool breakbeam_status;
+        float breakbeam_time_sec;
+        bool wait_flag = false;
         
         // Sensor Images
         cv::Mat kts1_rgb_camera_image_;
@@ -315,6 +331,7 @@ class AriacCompetition : public rclcpp::Node {
         geometry_msgs::msg::Pose kts2_camera_pose_;
         geometry_msgs::msg::Pose left_bins_camera_pose_;
         geometry_msgs::msg::Pose right_bins_camera_pose_;
+        geometry_msgs::msg::Pose conv_camera_pose_;
 
         // Trays
         std::vector<geometry_msgs::msg::Pose> kts1_trays_;
@@ -333,21 +350,34 @@ class AriacCompetition : public rclcpp::Node {
         ariac_msgs::msg::VacuumGripperState ceiling_gripper_state_;
         ariac_msgs::msg::Part ceiling_robot_attached_part_;
 
+        // Parts
+        std::vector<group3::msg::Part> right_parts_;
+        std::vector<group3::msg::Part> left_parts_;
+        std::vector<geometry_msgs::msg::Pose> conv_parts_;
+
         // Sensor Callbacks
         bool kts1_camera_received_data = false;
         bool kts2_camera_received_data = false;
         bool left_bins_camera_received_data = false;
         bool right_bins_camera_received_data = false;
+        bool conv_camera_received_data = false;
+        bool breakbeam_received_data = false;
 
         bool kts1_rgb_camera_received_data = false;
         bool kts2_rgb_camera_received_data = false;
         bool left_bins_rgb_camera_received_data = false;
         bool right_bins_rgb_camera_received_data = false;
 
+        bool right_part_detector_received_data = false;
+        bool left_part_detector_received_data = false;
+
         void kts1_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void kts2_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void left_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void right_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+        void conv_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
+
+        void breakbeam_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
 
         void kts1_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
         void kts2_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
@@ -355,6 +385,10 @@ class AriacCompetition : public rclcpp::Node {
         void right_bins_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
 
         void floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg);
+        
+        void right_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
+        void left_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
+
         // Constants
         double kit_tray_thickness_ = 0.01;
         double drop_height_ = 0.002;

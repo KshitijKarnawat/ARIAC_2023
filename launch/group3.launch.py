@@ -16,6 +16,12 @@ def generate_launch_description():
         parameters=generate_parameters()
     )
 
+    part_detector_start = Node(
+        package="group3",
+        executable="part_detector.py",
+        output="screen",
+    )
+
     # floor_commander = Node(
     #     package="group3",
     #     executable="floor_exe",
@@ -30,4 +36,4 @@ def generate_launch_description():
         )
     )
     # return LaunchDescription([robot_commander, floor_commander, moveit])
-    return LaunchDescription([robot_commander, moveit])
+    return LaunchDescription([robot_commander,part_detector_start,moveit])

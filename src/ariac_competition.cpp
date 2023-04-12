@@ -17,6 +17,7 @@
 #include <array>
 #include <iterator>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 #include "../include/group3/ariac_competition.hpp"
@@ -67,6 +68,10 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
       "/ariac/sensors/right_bins_basic_camera/image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::right_bins_camera_cb, this, std::placeholders::_1), options);
   
+  conv_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
+      "/ariac/sensors/conv_basic_camera/image", rclcpp::SensorDataQoS(),
+      std::bind(&AriacCompetition::conv_camera_cb, this, std::placeholders::_1), options);
+  
   kts1_rgb_camera_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
       "/ariac/sensors/kts1_rgb_camera/rgb_image", rclcpp::SensorDataQoS(),
       std::bind(&AriacCompetition::kts1_rgb_camera_cb, this, std::placeholders::_1), options);
@@ -86,6 +91,18 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name) {
   floor_gripper_state_sub_ = this->create_subscription<ariac_msgs::msg::VacuumGripperState>(
         "/ariac/floor_robot_gripper_state", rclcpp::SensorDataQoS(),
         std::bind(&AriacCompetition::floor_gripper_state_cb, this, std::placeholders::_1), options);
+
+  right_part_detector_sub_ = this->create_subscription<group3::msg::Parts>(
+        "/right_bin_part_detector", rclcpp::SensorDataQoS(),
+        std::bind(&AriacCompetition::right_part_detector_cb, this, std::placeholders::_1), options);
+
+  left_part_detector_sub_ = this->create_subscription<group3::msg::Parts>(
+        "/left_bin_part_detector", rclcpp::SensorDataQoS(),
+        std::bind(&AriacCompetition::left_part_detector_cb, this, std::placeholders::_1), options);
+
+  breakbeam_sub_ = this->create_subscription<ariac_msgs::msg::BreakBeamStatus>(
+        "/ariac/sensors/breakbeam_0/status", rclcpp::SensorDataQoS(),
+        std::bind(&AriacCompetition::breakbeam_cb, this, std::placeholders::_1), options);
 
   RCLCPP_INFO(this->get_logger(), "Initialization successful.");
 
@@ -281,9 +298,25 @@ void AriacCompetition::order_callback(ariac_msgs::msg::Order::SharedPtr msg) {
 void AriacCompetition::populate_bin_part(){
   AriacCompetition::setup_map();
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin map setup");
-  std::vector<std::vector<int>> right_bin = rightbin(right_bins_rgb_camera_image_);
+  std::vector<std::vector<int>> right_bin;
+  for (unsigned int i = 0; i < right_parts_.size(); i++) {
+    std::vector<int> right_bin_part;
+    right_bin_part.push_back(right_parts_[i].color);
+    right_bin_part.push_back(right_parts_[i].type);
+    right_bin_part.push_back(right_parts_[i].quad);
+    right_bin.push_back(right_bin_part);
+  }
+  // std::vector<std::vector<int>> right_bin = rightbin(right_bins_rgb_camera_image_);
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Right Vector Information populated");
-  std::vector<std::vector<int>> left_bin = leftbin(left_bins_rgb_camera_image_);
+  // std::vector<std::vector<int>> left_bin = leftbin(left_bins_rgb_camera_image_);
+  std::vector<std::vector<int>> left_bin;
+  for (unsigned int i = 0; i < left_parts_.size(); i++) {
+    std::vector<int> left_bin_part;
+    left_bin_part.push_back(left_parts_[i].color);
+    left_bin_part.push_back(left_parts_[i].type);
+    left_bin_part.push_back(left_parts_[i].quad);
+    left_bin.push_back(left_bin_part);
+  }
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Left Vector Information populated");
   int count_right = 0;
   int count_left = 0;
@@ -291,12 +324,14 @@ void AriacCompetition::populate_bin_part(){
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = right_bins_parts_[count_right];
     count_right++;
+    RCLCPP_INFO_STREAM(this->get_logger(), "Bin Right Information populated with " << bin_map[part[2]].part_type_clr << " " << bin_map[part[2]].part_pose.position.x << " " << part[2]);
   }
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Right Information populated");
   for (auto part : left_bin){
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = left_bins_parts_[count_left];
     count_left++;
+    RCLCPP_INFO_STREAM(this->get_logger(), "Bin left Information populated with " << bin_map[part[2]].part_type_clr << " " << bin_map[part[2]].part_pose.position.x << " " << part[2]);
   }
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Left Information populated");
 }
@@ -459,32 +494,40 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   std::string part_info;
 
   move_floor_robot_home_client();
-  floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
+  // floor_change_gripper_client("parts","kts2");
+  // move_floor_robot_home_client();
+  while (!wait_flag) {
+    sleep(10);
+  }
+  while (wait_flag) {
+    sleep(10);
+  }
+  // floor_picknplace_tray_client(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
   // if (floor_gripper_state_.type != "part_gripper")
   //     {
   //     floor_change_gripper_client("parts","kts2");
   //     }
 
-  int count = 0;
-  for (auto i : keys){
-    if (i[1] == 0) {
-      continue;
-    } else if (i[1] == 1) {
-      // part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
-      RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
-      floor_pick_bin_part_client((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
-      // floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
-    } else if (i[1] == 2) {
-      part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
-      // floor.PickConveyorPart(part_info);
-    }
-    // floor.PlacePartOnKitTray(part_info, current_order[0].GetKitting().get()->GetParts()[count][2], current_order[0].GetKitting().get()->GetTrayId());
-    floor_place_part_client(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-    count++;
-  }
+  // int count = 0;
+  // for (auto i : keys){
+  //   if (i[1] == 0) {
+  //     continue;
+  //   } else if (i[1] == 1) {
+  //     // part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+  //     RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
+  //     floor_pick_bin_part_client((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
+  //     // floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
+  //   } else if (i[1] == 2) {
+  //     part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
+  //     // floor.PickConveyorPart(part_info);
+  //   }
+  //   // floor.PlacePartOnKitTray(part_info, current_order[0].GetKitting().get()->GetParts()[count][2], current_order[0].GetKitting().get()->GetTrayId());
+  //   floor_place_part_client(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+  //   count++;
+  // }
 
-  move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
-  move_floor_robot_home_client();
+  // move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
+  // move_floor_robot_home_client();
 
 }
 
@@ -823,6 +866,18 @@ void AriacCompetition::right_bins_camera_cb(
     right_bins_camera_pose_ = msg->sensor_pose;
 }
 
+void AriacCompetition::conv_camera_cb(
+    const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg){
+    if (!conv_camera_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from conveyor camera");
+        conv_camera_received_data = true;
+    }
+
+    conv_parts_ = msg->part_poses;
+    conv_camera_pose_ = msg->sensor_pose;
+}
+
 void AriacCompetition::kts1_rgb_camera_cb(
     const sensor_msgs::msg::Image::ConstSharedPtr msg){
     if (!kts1_rgb_camera_received_data)
@@ -861,6 +916,45 @@ void AriacCompetition::right_bins_rgb_camera_cb(
         right_bins_rgb_camera_received_data = true;
     }
     right_bins_rgb_camera_image_ = cv_bridge::toCvShare(msg, "bgr8")->image;
+}
+
+void AriacCompetition::right_part_detector_cb(
+    const group3::msg::Parts::ConstSharedPtr msg){
+    if (!right_part_detector_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from Right part detector node");
+        right_part_detector_received_data = true;
+    }
+    right_parts_ = msg->parts;
+}
+
+void AriacCompetition::left_part_detector_cb(
+    const group3::msg::Parts::ConstSharedPtr msg){
+    if (!left_part_detector_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from Left part detector node");
+        left_part_detector_received_data = true;
+    }
+    left_parts_ = msg->parts;
+}
+
+void AriacCompetition::breakbeam_cb(
+    const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg){
+    if (!breakbeam_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from breakbeam node");
+        breakbeam_received_data = true;
+    }
+    breakbeam_time_sec = msg->header.stamp.sec;
+    breakbeam_status = msg->object_detected;
+    if (breakbeam_status == true){
+      RCLCPP_INFO_STREAM(get_logger(), "\033[0;91m Part detected by breakbeam at time stamp \033[0m" << breakbeam_time_sec << " Time now is " << now().seconds());
+      wait_flag = true;
+      while(floor_pick_conv_part_client(conv_parts_[0],conv_camera_pose_,breakbeam_time_sec)){
+        sleep(10);
+      }
+      wait_flag = false;
+    }
 }
 
 void AriacCompetition::move_floor_robot_home_client(){
@@ -1027,6 +1121,45 @@ bool AriacCompetition::floor_pick_bin_part_client(int part_clr,int part_type,geo
 
   request->part_clr = part_clr;
   request->part_type = part_type;
+
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+      return false;
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(), "Successfully Picked Tray");
+    return true;
+  } else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to pickup tray");
+    return false;
+  }
+  client.reset();
+}
+
+bool AriacCompetition::floor_pick_conv_part_client(geometry_msgs::msg::Pose part_pose,geometry_msgs::msg::Pose camera_pose,int detection_time){
+
+  std::string srv_name = "/competitor/floor_pick_part_conv";
+
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("floor_pick_part_conv_client");
+  
+  rclcpp::Client<group3::srv::FloorPickPartConv>::SharedPtr client =
+      node->create_client<group3::srv::FloorPickPartConv>(srv_name);
+
+  auto request = std::make_shared<group3::srv::FloorPickPartConv::Request>();
+
+  request->part_pose = part_pose;
+  request->camera_pose = camera_pose;
+  request->time = detection_time;
 
   while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
     if (!rclcpp::ok()) {

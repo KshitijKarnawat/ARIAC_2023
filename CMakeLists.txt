@@ -27,6 +27,11 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(OpenCV REQUIRED)
 
+set(msg_files
+  "msg/Part.msg"
+  "msg/Parts.msg"
+)
+
 set(srv_files
   "srv/FloorChangeGripper.srv"
   "srv/FloorPickTray.srv"
@@ -40,6 +45,7 @@ include_directories(include/group3)
 install(DIRECTORY include config launch rviz DESTINATION share/${PROJECT_NAME}/)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
   ${srv_files}
 
   DEPENDENCIES
@@ -74,11 +80,11 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-ament_python_install_package(${PROJECT_NAME}
-  SCRIPTS_DESTINATION lib/${PROJECT_NAME})
+ament_python_install_package(${PROJECT_NAME} SCRIPTS_DESTINATION lib/${PROJECT_NAME})
 
 install(PROGRAMS
   nodes/image_saver.py
+  nodes/part_detector.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
