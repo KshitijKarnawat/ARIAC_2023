@@ -26,8 +26,8 @@ int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     // cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 2);
     cv::dilate(mask, mask, element, cv::Point(-1, -1));
     cv::dilate(mask, mask, element, cv::Point(-1, -1));
-    cv::erosion(mask, mask, element, cv::Point(-1, -1));
-    cv::erosion(mask, mask, element, cv::Point(-1, -1));
+    cv::erode(mask, mask, element, cv::Point(-1, -1));
+    cv::erode(mask, mask, element, cv::Point(-1, -1));
 
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
@@ -157,14 +157,14 @@ std::vector<std::vector<int>> rightbin(cv::Mat img){
         cv::Mat element = cv::Mat::ones(3, 3, CV_8U);
 
         // cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element, cv::Point(-1,-1), 2);
-        cv::erosion(mask, mask, element, cv::Point(-1, -1));
-        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::erode(mask, mask, element, cv::Point(-1, -1));
+        cv::erode(mask, mask, element, cv::Point(-1, -1));
         cv::dilate(mask, mask, element, cv::Point(-1, -1));
         cv::dilate(mask, mask, element, cv::Point(-1, -1));
 
         // cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 1);
         cv::dilate(mask, mask, element, cv::Point(-1, -1));
-        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::erode(mask, mask, element, cv::Point(-1, -1));
         
         cv::Mat new_image;
         cv::bitwise_and(img, img, new_image, mask);
@@ -289,14 +289,14 @@ std::vector<std::vector<int>> leftbin(cv::Mat img){
         cv::Mat element = cv::Mat::ones(3, 3, CV_8U);
         
         // cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element, cv::Point(-1,-1), 2);
-        cv::erosion(mask, mask, element, cv::Point(-1, -1));
-        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::erode(mask, mask, element, cv::Point(-1, -1));
+        cv::erode(mask, mask, element, cv::Point(-1, -1));
         cv::dilate(mask, mask, element, cv::Point(-1, -1));
         cv::dilate(mask, mask, element, cv::Point(-1, -1));
 
         // cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 1);
         cv::dilate(mask, mask, element, cv::Point(-1, -1));
-        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::erode(mask, mask, element, cv::Point(-1, -1));
         
         cv::Mat new_image;
         cv::bitwise_and(img, img, new_image, mask);
