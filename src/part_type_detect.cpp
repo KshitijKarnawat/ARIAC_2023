@@ -2,7 +2,6 @@
 #include <iostream>
 
 int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
-    // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here4");
     int type;
     cv::Rect rect = cv::boundingRect(cnt);
     int x = rect.x;
@@ -11,8 +10,6 @@ int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     int h = rect.height;
 
     cv::rectangle(img, rect, cv::Scalar(0, 255, 0), 2);
-    // cv::imshow("uncut image", img); 
-    // cv::waitKey(0);
 
     cv::Mat im = img.clone();
     im = im(cv::Range(y+1,y+h+1), cv::Range(x+1,x+w+1));
@@ -24,12 +21,17 @@ int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     cv::Mat mask;
     cv::inRange(im_hsv, lower_gray, upper_gray, mask);
 
-    // cv::Mat element = getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+    cv::Mat element = cv::Mat::ones(3, 3, CV_8U);
+
     // cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 2);
+    cv::dilate(mask, mask, element, cv::Point(-1, -1));
+    cv::dilate(mask, mask, element, cv::Point(-1, -1));
+    cv::erosion(mask, mask, element, cv::Point(-1, -1));
+    cv::erosion(mask, mask, element, cv::Point(-1, -1));
 
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
-    findContours(mask, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(mask, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
     
     int count = 0;
 
@@ -57,13 +59,13 @@ int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     } else if (count == 0) {
         type = ariac_msgs::msg::Part::PUMP;  //11 - Pump
     } 
-    // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here5");
+
     return type;
 }
 
 
 std::vector<int> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Point> c, int x_m, int y_m){
-    // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here3");
+
     int part_clr;
     int part_type;
     std::vector<int> clr_type;
@@ -90,34 +92,24 @@ std::vector<int> detect_color(cv::Mat img, cv::Mat new_image, std::vector<cv::Po
     }
     clr_type.push_back(part_clr);
     clr_type.push_back(part_type);
-    // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here6");
+
     return clr_type;
 }
     
 
 std::vector<std::vector<int>> rightbin(cv::Mat img){
-    // cv::imshow("uncut image", img); 
-    // cv::waitKey(0);
     std::vector<std::vector<int>> right_bin_info;
     std::vector<int> part_info;
-    // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here0");
+
     cv::Mat img_bin_tr = img(cv::Range(28,223), cv::Range(356,548));
     cv::Mat img_bin_tl = img(cv::Range(28,223), cv::Range(118,308));
     cv::Mat img_bin_br = img(cv::Range(267,458), cv::Range(356,548));
     cv::Mat img_bin_bl = img(cv::Range(267,458), cv::Range(118,308));
-    // cv::imshow("uncut image1", img_bin_tr); 
-    // cv::imshow("uncut image2", img_bin_tl); 
-    // cv::imshow("uncut image3", img_bin_br); 
-    // cv::imshow("uncut image4", img_bin_bl); 
-    // cv::waitKey(0);
-    // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1");
+
     std::vector<cv::Mat> image{img_bin_br, img_bin_bl, img_bin_tl, img_bin_tr};
     int i = 0;
 
     for (auto img : image) {
-        // cv::imshow("uncut image", img); 
-        // cv::waitKey(0);
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1.5");
         cv::Mat img_hsv;
         cv::cvtColor(img.clone(), img_hsv, cv::COLOR_BGR2HSV);
 
@@ -161,26 +153,33 @@ std::vector<std::vector<int>> rightbin(cv::Mat img){
         cv::inRange(img_hsv, lower_gray, upper_gray, mask6);
 
         cv::Mat mask = mask1 + mask11 + mask2 + mask3 + mask4 + mask5 + mask6;
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1.8");
-        // cv::Mat element = getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-        // cv::Mat element = getStructuringElement(0, cv::Size(3, 3));
+
+        cv::Mat element = cv::Mat::ones(3, 3, CV_8U);
+
         // cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element, cv::Point(-1,-1), 2);
+        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::dilate(mask, mask, element, cv::Point(-1, -1));
+        cv::dilate(mask, mask, element, cv::Point(-1, -1));
+
         // cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 1);
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1.81");
+        cv::dilate(mask, mask, element, cv::Point(-1, -1));
+        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        
         cv::Mat new_image;
-        bitwise_and(img, img, new_image, mask);
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1.82");
+        cv::bitwise_and(img, img, new_image, mask);
+
         cv::Mat blur;
         cv::GaussianBlur(mask, blur, cv::Size(5, 5), 0);
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1.83");
+
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarchy;
-        findContours(blur, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here1.84");
+        cv::findContours(blur, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+
         int x_m;
         int y_m;
         int quadrant;
-        // RCLCPP_INFO_STREAM(rclcpp::get_logger("OpenCV"), "\n\n\n\nIm here2");
+
         for (auto c : contours) {
             auto area_cnt = cv::contourArea(c);
             cv::Moments M = cv::moments(c);
@@ -230,11 +229,9 @@ std::vector<std::vector<int>> rightbin(cv::Mat img){
 }
 
 std::vector<std::vector<int>> leftbin(cv::Mat img){
-    // cv::imshow("uncut image", img); 
-    // cv::waitKey(0);
     std::vector<std::vector<int>> left_bin_info;
     std::vector<int> part_info;
-    // std::cout << "\n\n\n\nIm here" << img.size() << img.channels();
+
     cv::Mat img_bin_tr = img(cv::Range(28,223), cv::Range(356,548));
     cv::Mat img_bin_tl = img(cv::Range(28,223), cv::Range(118,308));
     cv::Mat img_bin_br = img(cv::Range(267,458), cv::Range(356,548));
@@ -289,19 +286,28 @@ std::vector<std::vector<int>> leftbin(cv::Mat img){
 
         cv::Mat mask = mask1 + mask11 + mask2 + mask3 + mask4 + mask5 + mask6;
         
-        // cv::Mat element = getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+        cv::Mat element = cv::Mat::ones(3, 3, CV_8U);
+        
         // cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element, cv::Point(-1,-1), 2);
+        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::erosion(mask, mask, element, cv::Point(-1, -1));
+        cv::dilate(mask, mask, element, cv::Point(-1, -1));
+        cv::dilate(mask, mask, element, cv::Point(-1, -1));
+
         // cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element, cv::Point(-1,-1), 1);
+        cv::dilate(mask, mask, element, cv::Point(-1, -1));
+        cv::erosion(mask, mask, element, cv::Point(-1, -1));
         
         cv::Mat new_image;
-        bitwise_and(img, img, new_image, mask);
+        cv::bitwise_and(img, img, new_image, mask);
         
         cv::Mat blur;
         cv::GaussianBlur(mask, blur, cv::Size(5, 5), 0);
         
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarchy;
-        findContours(blur, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+        cv::findContours(blur, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+        
         int x_m;
         int y_m;
         int quadrant;
