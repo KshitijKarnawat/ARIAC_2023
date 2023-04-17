@@ -946,11 +946,11 @@ int main(int argc, char *argv[])
     rclcpp::NodeOptions options;
     options.automatically_declare_parameters_from_overrides(true);
     auto ariac_competition = std::make_shared<AriacCompetition>("Group3_Competitor");
-    auto floor_robot = std::make_shared<FloorRobot>();
+    // auto floor_robot = std::make_shared<FloorRobot>();
     rclcpp::executors::MultiThreadedExecutor executor;
 
-    auto spin_thread = std::make_unique<std::thread>([&executor, &ariac_competition,  &floor_robot]() {
-      executor.add_node(floor_robot);
+    auto spin_thread = std::make_unique<std::thread>([&executor, &ariac_competition]() {
+      // executor.add_node(floor_robot);
       executor.add_node(ariac_competition);
       
       // executor.remove_node(ariac_competition);

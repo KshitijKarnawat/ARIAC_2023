@@ -16,12 +16,12 @@ def generate_launch_description():
         parameters=generate_parameters()
     )
 
-    # floor_commander = Node(
-    #     package="group3",
-    #     executable="floor_exe",
-    #     output="screen",
-    #     parameters=generate_parameters()
-    # )
+    floor_commander = Node(
+        package="group3",
+        executable="floor_exe",
+        output="screen",
+        parameters=generate_parameters()
+    )
 
     # MoveIt node
     moveit = IncludeLaunchDescription(
@@ -29,5 +29,5 @@ def generate_launch_description():
             [FindPackageShare("ariac_moveit_config"), "/launch", "/ariac_robots_moveit.launch.py"]
         )
     )
-    # return LaunchDescription([robot_commander, floor_commander, moveit])
-    return LaunchDescription([robot_commander, moveit])
+    return LaunchDescription([robot_commander, floor_commander, moveit])
+    # return LaunchDescription([robot_commander, moveit])

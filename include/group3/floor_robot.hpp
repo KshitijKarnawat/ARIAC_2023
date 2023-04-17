@@ -108,11 +108,15 @@ private:
   void AddModelToPlanningScene(std::string name, std::string mesh_file, geometry_msgs::msg::Pose model_pose);
   void AddModelsToPlanningScene();
 
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::Executor::SharedPtr executor_;
+  std::thread executor_thread_;
+
   // Callback Groups
   rclcpp::CallbackGroup::SharedPtr topic_cb_group_;
   
   // MoveIt Interfaces 
-  moveit::planning_interface::MoveGroupInterface floor_robot_;
+  moveit::planning_interface::MoveGroupInterfacePtr floor_robot_;
 
   moveit::planning_interface::PlanningSceneInterface planning_scene_;
   
