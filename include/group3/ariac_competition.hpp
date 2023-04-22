@@ -53,6 +53,8 @@
 #include <ariac_msgs/msg/basic_logical_camera_image.hpp>
 #include <ariac_msgs/msg/vacuum_gripper_state.hpp>
 #include <ariac_msgs/msg/break_beam_status.hpp>
+#include <ariac_msgs/msg/quality_issue.hpp>
+
 
 #include <ariac_msgs/srv/change_gripper.hpp>
 #include <ariac_msgs/srv/vacuum_gripper_control.hpp>
@@ -177,6 +179,8 @@ class AriacCompetition : public rclcpp::Node {
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
         void populate_bin_part();
+        int CheckFaultyPart(std::string order_id, int quadrant);
+
 
     private:
 
@@ -633,4 +637,5 @@ class Orders {
         * @param _combined 
         */
         virtual void SetCombined(std::shared_ptr<Combined> _combined) { combined_ = _combined; }
+
 };
