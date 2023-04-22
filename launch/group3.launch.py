@@ -16,11 +16,11 @@ def generate_launch_description():
         parameters=generate_parameters()
     )
 
-    # part_detector_start = Node(
-    #     package="group3",
-    #     executable="part_detector.py",
-    #     output="screen",
-    # )
+    part_detector_start = Node(
+        package="group3",
+        executable="part_detector.py",
+        output="screen",
+    )
 
     # floor_commander = Node(
     #     package="group3",
@@ -35,5 +35,5 @@ def generate_launch_description():
             [FindPackageShare("ariac_moveit_config"), "/launch", "/ariac_robots_moveit.launch.py"]
         )
     )
-    return LaunchDescription([robot_commander, moveit])
-    # return LaunchDescription([robot_commander,part_detector_start,moveit])
+    # return LaunchDescription([robot_commander, moveit])
+    return LaunchDescription([robot_commander,part_detector_start,moveit])

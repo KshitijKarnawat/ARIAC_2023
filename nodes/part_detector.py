@@ -173,6 +173,7 @@ class ImageSubscriber(Node):
           parts_.append(msg)
       i +=1
     # self.get_logger().info("\n")
+    parts_ = sorted(parts_, key=lambda x: x.quad)
     msg2.parts = parts_
     self.publisher1_.publish(msg2)
     # self.destroy_node()
@@ -198,7 +199,7 @@ class ImageSubscriber(Node):
     img_bin_br = img[267:458, 356:548]
     img_bin_bl = img[267:458, 118:308]
 
-    image = [img_bin_br, img_bin_bl, img_bin_tl, img_bin_tr]
+    image = [img_bin_bl, img_bin_br, img_bin_tr, img_bin_tl]
     i = 0
 
     for img in image:
@@ -291,6 +292,7 @@ class ImageSubscriber(Node):
           parts_.append(msg)
       i +=1
     # self.get_logger().info("\n")
+    parts_ = sorted(parts_, key=lambda x: x.quad)
     msg2.parts = parts_
     self.publisher2_.publish(msg2)
     # self.destroy_node()

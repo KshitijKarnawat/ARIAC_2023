@@ -237,8 +237,8 @@ std::vector<std::vector<int>> leftbin(cv::Mat img){
     cv::Mat img_bin_br = img(cv::Range(267,458), cv::Range(356,548));
     cv::Mat img_bin_bl = img(cv::Range(267,458), cv::Range(118,308));
 
-    std::vector<cv::Mat> image{img_bin_br, img_bin_bl, img_bin_tl, img_bin_tr}; // Old one
-    // std::vector<cv::Mat> image{img_bin_bl, img_bin_br, img_bin_tr, img_bin_tl};  // After Tanmay's modification
+    // std::vector<cv::Mat> image{img_bin_br, img_bin_bl, img_bin_tl, img_bin_tr}; // Old one
+    std::vector<cv::Mat> image{img_bin_bl, img_bin_br, img_bin_tr, img_bin_tl};  // After Tanmay's modification
     int i = 0;
 
     for (auto img : image) {

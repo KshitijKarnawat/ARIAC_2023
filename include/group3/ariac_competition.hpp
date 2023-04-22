@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <set>
 #include <cmath>
+#include <iterator>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
@@ -78,6 +79,7 @@
 
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/subscription_options.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp/time.hpp>
 
@@ -97,6 +99,11 @@
 
 #include "group3/msg/part.hpp"
 #include "group3/msg/parts.hpp"
+
+// #include "../include/group3/floor_robot.hpp"
+#include "tray_id_detect.hpp"
+#include "part_type_detect.hpp"
+#include "map_poses.hpp"
 
 class Orders;
 
@@ -165,7 +172,7 @@ class AriacCompetition : public rclcpp::Node {
         bool FloorRobotSetGripperState(bool enable);
         void FloorRobotChangeGripper(std::string gripper_type, std::string station);
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
-        bool FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_camera_pose,int part_quad);
+        bool FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
         bool FloorRobotPickConvPart(geometry_msgs::msg::Pose part_pose,geometry_msgs::msg::Pose camera_pose,int detection_time);
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
@@ -311,9 +318,12 @@ class AriacCompetition : public rclcpp::Node {
 
         // Constants
         double kit_tray_thickness_ = 0.01;
-        double drop_height_ = 0.002;
+        double drop_height_ = 0.003;
         double pick_offset_ = 0.003;
         double battery_grip_offset_ = -0.05;
+
+        std::map<int, geometry_msgs::msg::Pose> bin_quadrant_poses;
+        std::map<int, geometry_msgs::msg::Pose> tray_poses;
 
         std::map<int, std::string> part_types_ = {
             {ariac_msgs::msg::Part::BATTERY, "battery"},
