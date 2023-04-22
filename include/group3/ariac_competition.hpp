@@ -317,8 +317,8 @@ class AriacCompetition : public rclcpp::Node {
         void left_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
 
         // Constants
-        double kit_tray_thickness_ = 0.01;
-        double drop_height_ = 0.003;
+        double kit_tray_thickness_ = 0.011;
+        double drop_height_ = 0.005;
         double pick_offset_ = 0.003;
         double battery_grip_offset_ = -0.05;
 
