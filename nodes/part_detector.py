@@ -75,10 +75,10 @@ class ImageSubscriber(Node):
     # Display image
     img = current_frame
 
-    img_bin_tr = img[28:223, 356:548]
-    img_bin_tl = img[28:223, 118:308]
-    img_bin_br = img[267:458, 356:548]
-    img_bin_bl = img[267:458, 118:308]
+    img_bin_tr = img[28:223, 333:530]
+    img_bin_tl = img[28:223, 92:285]
+    img_bin_br = img[267:458, 333:530]
+    img_bin_bl = img[267:458, 92:285]
 
     image = [img_bin_br, img_bin_bl, img_bin_tl, img_bin_tr]
     i = 0
@@ -194,10 +194,10 @@ class ImageSubscriber(Node):
     # Display image
     img = current_frame
 
-    img_bin_tr = img[28:223, 356:548]
-    img_bin_tl = img[28:223, 118:308]
-    img_bin_br = img[267:458, 356:548]
-    img_bin_bl = img[267:458, 118:308]
+    img_bin_tr = img[28:223, 333:530]
+    img_bin_tl = img[28:223, 92:285]
+    img_bin_br = img[267:458, 333:530]
+    img_bin_bl = img[267:458, 92:285]
 
     image = [img_bin_bl, img_bin_br, img_bin_tr, img_bin_tl]
     i = 0
