@@ -1383,7 +1383,7 @@ void AriacCompetition::FloorRobotPickandPlaceTray(int tray_idx , int agv_num){
   }
 
   RCLCPP_INFO_STREAM(this->get_logger(), "\n\nTray Pose: " << tray_pose.position.x << " " << tray_pose.position.y << " " << tray_pose.position.z);
-
+  
   double tray_rotation = GetYaw(tray_pose);
   
   std::vector<geometry_msgs::msg::Pose> waypoints;
@@ -1413,9 +1413,15 @@ void AriacCompetition::FloorRobotPickandPlaceTray(int tray_idx , int agv_num){
   floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
 
   FloorRobotMovetoTarget();
+  double agv_rotation;
 
   auto agv_tray_pose = FrameWorldPose("agv" + std::to_string(agv_num) + "_tray");
-  auto agv_rotation = GetYaw(agv_tray_pose);
+  if (station == "kts1"){
+    agv_rotation = -GetYaw(agv_tray_pose);
+  }
+  else {
+    agv_rotation = GetYaw(agv_tray_pose);
+  }
 
   waypoints.clear();
 
