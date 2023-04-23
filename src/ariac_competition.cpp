@@ -17,7 +17,8 @@
 #include <string>
 
 AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
-  node_(std::make_shared<rclcpp::Node>("floor_robot")),
+  floor_robot_node_(std::make_shared<rclcpp::Node>("floor_robot")),
+  ceil_robot_node_(std::make_shared<rclcpp::Node>("ceiling_robot")),
   executor_(std::make_shared<rclcpp::executors::MultiThreadedExecutor>()),
   // floor_robot_(std::shared_ptr<rclcpp::Node>(std::move(this)), "floor_robot"),
   planning_scene_() 
@@ -26,10 +27,15 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
   RCLCPP_INFO_STREAM(this->get_logger(),
                             "\n\nInside constructor");
   
-  auto mgi_options = moveit::planning_interface::MoveGroupInterface::Options(
+  auto floor_mgi_options = moveit::planning_interface::MoveGroupInterface::Options(
         "floor_robot",
         "robot_description");
-  floor_robot_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, mgi_options);
+  floor_robot_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(floor_robot_node_, floor_mgi_options);
+  
+  auto ceil_mgi_options = moveit::planning_interface::MoveGroupInterface::Options(
+        "ceiling_robot",
+        "robot_description");
+  ceil_robot_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(ceil_robot_node_, ceil_mgi_options);
   
   if (floor_robot_->startStateMonitor()) {
       RCLCPP_INFO(this->get_logger(), "Floor Robot State Monitor Started");
@@ -40,6 +46,15 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
   floor_robot_->setMaxAccelerationScalingFactor(1.0);
   floor_robot_->setMaxVelocityScalingFactor(1.0);
 
+  if (ceil_robot_->startStateMonitor()) {
+      RCLCPP_INFO(this->get_logger(), "Ceiling Robot State Monitor Started");
+  } else {
+      RCLCPP_ERROR(this->get_logger(), "Ceiling Robot State Monitor Failed to Start");
+  }
+  
+  ceil_robot_->setMaxAccelerationScalingFactor(1.0);
+  ceil_robot_->setMaxVelocityScalingFactor(1.0);
+  
   competition_state_sub_ =
       this->create_subscription<ariac_msgs::msg::CompetitionState>(
           "/ariac/competition_state", 10,
@@ -101,6 +116,10 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
         "/ariac/floor_robot_gripper_state", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
         std::bind(&AriacCompetition::floor_gripper_state_cb, this, std::placeholders::_1), options);
 
+  ceil_gripper_state_sub_ = this->create_subscription<ariac_msgs::msg::VacuumGripperState>(
+        "/ariac/ceiling_robot_gripper_state", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
+        std::bind(&AriacCompetition::ceil_gripper_state_cb, this, std::placeholders::_1), options);
+
   right_part_detector_sub_ = this->create_subscription<group3::msg::Parts>(
         "/right_bin_part_detector", rclcpp::SensorDataQoS(),
         std::bind(&AriacCompetition::right_part_detector_cb, this, std::placeholders::_1), options);
@@ -121,7 +140,8 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
       std::chrono::milliseconds(100),
       std::bind(&AriacCompetition::end_competition_timer_callback, this)); 
 
-  executor_->add_node(node_);
+  executor_->add_node(floor_robot_node_);
+  executor_->add_node(ceil_robot_node_);
   executor_thread_ = std::thread([this]()
                                    { this->executor_->spin(); });   
 
@@ -489,6 +509,7 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   std::string part_info;
 
   FloorRobotMoveHome();
+  CeilRobotMoveHome();
   FloorRobotPickandPlaceTray(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
 
   int count = 0;
@@ -499,7 +520,17 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       // part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
       RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
       // floor_pick_bin_part_client((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
-      FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
+      
+      if (FloorRobotReachableWorkspace(i[0])) {
+        CeilRobotMoveHome();
+        FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
+        FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+      } else {
+        FloorRobotMoveHome();
+        CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
+        CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
+      }
+
       // floor.PickBinPart(part_info,(int(i[0])/9)+1,(int(i[0])%9)+1);
     } else if (i[1] == 2) {
       part_info = ConvertPartColorToString((conveyor_parts[i[0]])%10) + " " + ConvertPartTypeToString((conveyor_parts[i[0]])/10);
@@ -507,7 +538,9 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     }
     // floor.PlacePartOnKitTray(part_info, current_order[0].GetKitting().get()->GetParts()[count][2], current_order[0].GetKitting().get()->GetTrayId());
     // floor_place_part_client(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-    FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+    
+    // if (FloorRobotReachableWorkspace(i[0])) {
+    // FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
     bin_map[i[0]].part_type_clr = -1;
 
     if (dropped_parts_.size() != 0) {
@@ -519,14 +552,26 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       }
       dropped_parts_.clear();
     }
+    // } else {
+    //   CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);  
+    // }
     count++;
   }
-  int fu;
-  for (i = 1; i < 5; i++) {
-    fu = CheckFaultyPart(current_order[0].GetId(), i);
+
+  int used_agv = current_order[0].GetKitting().get()->GetAgvId();
+  if (available_agvs.size() > 0) {
+    available_agvs.erase(std::remove(available_agvs.begin(), available_agvs.end(), used_agv), available_agvs.end());
   }
+  else {
+    RCLCPP_WARN_STREAM(this->get_logger(),"No more AGVs available!");
+  }
+  // int fu;
+  // for (i = 1; i < 5; i++) {
+  //   fu = CheckFaultyPart(current_order[0].GetId(), i);
+  // }
   move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
   FloorRobotMoveHome();
+  CeilRobotMoveHome();
 }
 
 void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
@@ -554,12 +599,43 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
 }
 
 void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
-  int agv_num = determine_agv(current_order[0].GetCombined().get()->GetStation());
-  int tray_num = 1;
+
+  // Not sure what determine_agv() is doing!
+  int agv_num;  // = determine_agv(current_order[0].GetCombined().get()->GetStation());
+  int station_num = current_order[0].GetCombined().get()->GetStation();
+
+  if (station_num == ariac_msgs::msg::CombinedTask::AS1 or station_num == ariac_msgs::msg::CombinedTask::AS2) {
+    if (std::find(available_agvs.begin(), available_agvs.end(), 1) != available_agvs.end()) {
+      agv_num = 1;
+    } else {
+      agv_num = 2;
+    }  
+  } else {
+    if (std::find(available_agvs.begin(), available_agvs.end(), 4) != available_agvs.end()) {
+      agv_num = 4;
+    } else {
+      agv_num = 3;
+    } 
+  }
+
+  int tray_num;
+
+  auto kts1_vec = tray_detect(kts1_rgb_camera_image_);
+  auto kts2_vec = tray_detect(kts2_rgb_camera_image_);
+  std::vector<int> tray_id_vec(kts1_vec);
+  tray_id_vec.insert(tray_id_vec.end(), kts2_vec.begin(), kts2_vec.end());
+  
+  for (int i : tray_id_vec) {
+    if (i != -1) {
+      tray_num = i;
+      break;
+    }
+  }
+  
   std::string part_info;
 
   // ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetCombined().get()->GetStation()));
-  RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV " << agv_num);
+  RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV " << agv_num << " and Tray ID " << tray_num);
     
   // floor.ChangeGripper("Tray");
   // floor.PickandPlaceTray(tray_num, agv_num);
@@ -816,6 +892,11 @@ int AriacCompetition::determine_agv(int station_num) {
 
 void AriacCompetition::floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg){
   floor_gripper_state_ = *msg;
+}
+
+void AriacCompetition::ceil_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg){
+  ceil_gripper_state_ = *msg;
+  RCLCPP_INFO_STREAM(get_logger(), "Ceil Robot State: " << ceil_gripper_state_.type << " " << ceil_gripper_state_.enabled << " " << ceil_gripper_state_.attached);
 }
 
 // void AriacCompetition::kts1_camera_cb(
@@ -1231,6 +1312,20 @@ void AriacCompetition::FloorRobotWaitForAttach(double timeout){
       RCLCPP_ERROR(get_logger(), "Unable to pick up object");
       return;
     }
+  }
+}
+
+bool AriacCompetition::FloorRobotReachableWorkspace(int quadrant) {
+  if (quadrant >= 19 && quadrant <= 24) {
+    return false;
+  } else if (quadrant >= 28 && quadrant <= 33) {
+    return false;
+  } else if (quadrant >= 55 && quadrant <= 60) {
+    return false;
+  } else if (quadrant >= 64 && quadrant <= 69) {
+    return false;
+  } else {
+    return true;
   }
 }
 
@@ -1672,6 +1767,294 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant_){
     
 //     rclcpp::shutdown();
 // }
+
+void AriacCompetition::CeilRobotMoveHome() {
+  ceil_robot_->setNamedTarget("home");
+  CeilRobotMovetoTarget();
+}
+
+bool AriacCompetition::CeilRobotMovetoTarget(){
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    bool success = static_cast<bool>(ceil_robot_->plan(plan));
+
+    if (success)
+    {
+        return static_cast<bool>(ceil_robot_->execute(plan));
+    }
+    else
+    {
+        RCLCPP_ERROR(get_logger(), "Unable to generate plan");
+        return false;
+    }
+}
+
+bool AriacCompetition::CeilRobotSetGripperState(bool enable) {
+  if (ceil_gripper_state_.enabled == enable) {
+    if (ceil_gripper_state_.enabled)
+      RCLCPP_INFO(get_logger(), "Already enabled");
+    else 
+      RCLCPP_INFO(get_logger(), "Already disabled");
+    
+    return false;
+  }
+
+  std::string srv_name = "/ariac/ceiling_robot_enable_gripper";
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("client_ceil_robot_enable_gripper");
+    
+  rclcpp::Client<ariac_msgs::srv::VacuumGripperControl>::SharedPtr client =
+      node->create_client<ariac_msgs::srv::VacuumGripperControl>(srv_name);
+
+  // Call enable service
+  auto request = std::make_shared<ariac_msgs::srv::VacuumGripperControl::Request>();
+  request->enable = enable;
+
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+    RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                        "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) != rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_ERROR(get_logger(), "Error calling gripper enable service");
+    return false;
+  }
+
+}
+
+void AriacCompetition::CeilRobotChangeGripper(std::string gripper_type, std::string station) {
+  // Move floor robot to the corresponding kit tray table
+  if (station == "kts1")
+  {
+      ceil_robot_->setJointValueTarget(ceil_kts1_js_);
+  }
+  else
+  {
+      ceil_robot_->setJointValueTarget(ceil_kts2_js_);
+  }
+  CeilRobotMovetoTarget();
+
+  // Move gripper into tool changer
+  auto tc_pose = FrameWorldPose(station + "_tool_changer_" + gripper_type + "_frame");
+
+  std::vector<geometry_msgs::msg::Pose> waypoints;
+  waypoints.push_back(BuildPose(tc_pose.position.x, tc_pose.position.y,
+                                tc_pose.position.z + 0.4, SetRobotOrientation(0.0)));
+
+  waypoints.push_back(BuildPose(tc_pose.position.x, tc_pose.position.y,
+                                tc_pose.position.z, SetRobotOrientation(0.0)));
+
+  CeilRobotMoveCartesian(waypoints, 0.2, 0.1);
+
+  RCLCPP_INFO_STREAM(this->get_logger(),
+                    "Moved inside tool changer");
+
+  std::string srv_name = "/ariac/ceiling_robot_change_gripper";
+  std::shared_ptr<rclcpp::Node> node =
+      rclcpp::Node::make_shared("client_ceil_robot_change_gripper");
+  
+  rclcpp::Client<ariac_msgs::srv::ChangeGripper>::SharedPtr client =
+      node->create_client<ariac_msgs::srv::ChangeGripper>(srv_name);
+
+  // Call service to change gripper
+  auto request = std::make_shared<ariac_msgs::srv::ChangeGripper::Request>();
+  
+  if (gripper_type == "trays") {
+    request->gripper_type = ariac_msgs::srv::ChangeGripper::Request::TRAY_GRIPPER;
+  } else if (gripper_type == "parts") {
+    request->gripper_type = ariac_msgs::srv::ChangeGripper::Request::PART_GRIPPER;
+  }
+
+  while (!client->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+    RCLCPP_ERROR(this->get_logger(),
+                    "Interrupted while waiting for the service. Exiting.");
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),
+                    "Service not available, waiting again...");
+  }
+
+  auto result = client->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) != rclcpp::FutureReturnCode::SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to change gripper");
+  }
+
+  waypoints.clear();
+  waypoints.push_back(BuildPose(tc_pose.position.x, tc_pose.position.y, 
+    tc_pose.position.z + 0.4, SetRobotOrientation(0.0)));
+
+  CeilRobotMoveCartesian(waypoints, 0.2, 0.1);
+
+  node.reset();
+  client.reset();
+}
+
+bool AriacCompetition::CeilRobotMoveCartesian(
+    std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf){
+    moveit_msgs::msg::RobotTrajectory trajectory;
+
+    double path_fraction = ceil_robot_->computeCartesianPath(waypoints, 0.01, 0.0, trajectory);
+
+    if (path_fraction < 0.9)
+    {
+        RCLCPP_ERROR(get_logger(), "Unable to generate trajectory through waypoints");
+        return false;
+    }
+    
+    robot_trajectory::RobotTrajectory rt(ceil_robot_->getCurrentState()->getRobotModel(), "ceiling_robot");
+    rt.setRobotTrajectoryMsg(*ceil_robot_->getCurrentState(), trajectory);
+    totg_.computeTimeStamps(rt, vsf, asf);
+    rt.getRobotTrajectoryMsg(trajectory);
+
+    return static_cast<bool>(ceil_robot_->execute(trajectory));
+}
+
+void AriacCompetition::CeilRobotWaitForAttach(double timeout){
+  // Wait for part to be attached
+  rclcpp::Time start = now();
+  std::vector<geometry_msgs::msg::Pose> waypoints;
+  geometry_msgs::msg::Pose starting_pose = ceil_robot_->getCurrentPose().pose;
+
+  while (!ceil_gripper_state_.attached) {
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000, "Waiting for gripper attach");
+
+    waypoints.clear();
+    starting_pose.position.z -= 0.001;
+    waypoints.push_back(starting_pose);
+
+    CeilRobotMoveCartesian(waypoints, 0.1, 0.1);
+
+    usleep(200);
+
+    if (now() - start > rclcpp::Duration::from_seconds(timeout)){
+      RCLCPP_ERROR(get_logger(), "Unable to pick up object");
+      return;
+    }
+  }
+}
+
+bool AriacCompetition::CeilRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad){
+  bool found_part = false;
+  std::string bin_side;
+
+  if (part_quad < 37) {
+      bin_side = "right_bins";
+      if (ceil_gripper_state_.type != "part_gripper")
+      {
+        CeilRobotChangeGripper("parts","kts2");
+      }
+  } else {
+      bin_side = "left_bins";
+      if (ceil_gripper_state_.type != "part_gripper")
+      {
+        CeilRobotChangeGripper("parts","kts1");
+      }
+  }
+  double part_rotation = GetYaw(part_pose);
+
+  ceil_robot_->setJointValueTarget("gantry_y_axis_joint", gantry_positions_[bin_side]);
+  ceil_robot_->setJointValueTarget("gantry_x_axis_joint", 2.6);
+  ceil_robot_->setJointValueTarget("gantry_rotation_joint", -1.57);
+  CeilRobotMovetoTarget();
+
+  std::vector<geometry_msgs::msg::Pose> waypoints;
+  if (part_type == ariac_msgs::msg::Part::PUMP)
+  {
+    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+                                part_pose.position.z + part_heights_[part_type], SetRobotOrientation(part_rotation)));
+    CeilRobotMoveCartesian(waypoints, 0.1, 0.1);
+    CeilRobotSetGripperState(true);
+  }
+  else
+  {
+    waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+                                  part_pose.position.z + part_heights_[part_type] + pick_offset_, SetRobotOrientation(part_rotation)));
+
+    CeilRobotMoveCartesian(waypoints, 0.3, 0.1);
+    CeilRobotSetGripperState(true);
+    CeilRobotWaitForAttach(3.0);
+  }
+
+  // Add part to planning scene
+  std::string part_name = part_colors_[part_clr] + "_" + part_types_[part_type];
+  AddModelToPlanningScene(part_name, part_types_[part_type] + ".stl", part_pose);
+  ceil_robot_->attachObject(part_name);
+  ariac_msgs::msg::Part part_to_pick;
+  part_to_pick.color = part_clr;
+  part_to_pick.type = part_type;
+  ceil_robot_attached_part_ = part_to_pick;
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("CB"),
+                        "\n\n\n\033[0;91mThe floor robot attached part is 1: \033[0m" << std::to_string(part_to_pick.type) << " " << std::to_string(part_to_pick.color));
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("CB"),
+                        "\n\n\n\033[0;91mThe floor robot attached part is: \033[0m" << std::to_string(ceil_robot_attached_part_.type) << " " << std::to_string(ceil_robot_attached_part_.color));
+
+  // Move up slightly
+  waypoints.clear();
+  waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+                                part_pose.position.z + 0.3, SetRobotOrientation(0)));
+
+  CeilRobotMoveCartesian(waypoints, 0.1, 0.1);
+}
+
+bool AriacCompetition::CeilRobotPlacePartOnKitTray(int agv_num, int quadrant) {
+  if (!ceil_gripper_state_.attached) {
+      RCLCPP_ERROR(this->get_logger(), "No part attached");
+  }
+
+  // Move to agv
+  ceil_robot_->setJointValueTarget("gantry_y_axis_joint", gantry_positions_["agv" + std::to_string(agv_num)]);
+  ceil_robot_->setJointValueTarget("gantry_x_axis_joint", 3.835);
+  ceil_robot_->setJointValueTarget("gantry_rotation_joint", -1.57);
+  CeilRobotMovetoTarget();
+
+  auto agv_tray_pose = FrameWorldPose("agv" + std::to_string(agv_num) + "_tray");
+
+  auto part_drop_offset = BuildPose(quad_offsets_[quadrant].first, quad_offsets_[quadrant].second, 0.0,
+                                    geometry_msgs::msg::Quaternion());
+
+  auto part_drop_pose = MultiplyPose(agv_tray_pose, part_drop_offset);
+
+  std::vector<geometry_msgs::msg::Pose> waypoints;
+
+  if (ceil_robot_attached_part_.type == ariac_msgs::msg::Part::PUMP)
+  {
+    waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                part_drop_pose.position.z + part_heights_[ceil_robot_attached_part_.type] + drop_height_,
+                                SetRobotOrientation(0)));
+  }
+  else
+  {
+    waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                 part_drop_pose.position.z + 0.2, SetRobotOrientation(0)));
+    waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+                              part_drop_pose.position.z + part_heights_[ceil_robot_attached_part_.type] + drop_height_,
+                              SetRobotOrientation(0)));
+  }
+
+  CeilRobotMoveCartesian(waypoints, 0.1, 0.1);
+
+  CeilRobotSetGripperState(false);
+
+  std::string part_name = part_colors_[ceil_robot_attached_part_.color] +
+                          "_" + part_types_[ceil_robot_attached_part_.type];
+  
+  RCLCPP_INFO_STREAM(this->get_logger(), "Detaching: " << part_name);
+  ceil_robot_->detachObject(part_name);
+
+  waypoints.clear();
+  waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                part_drop_pose.position.z + 0.3,
+                                SetRobotOrientation(0)));
+
+  CeilRobotMoveCartesian(waypoints, 0.4, 0.1);
+
+}
 
 int main(int argc, char *argv[])
 {

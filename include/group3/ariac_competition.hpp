@@ -127,6 +127,7 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<Orders> submitted_orders;
 
         std::vector<int> tray_aruco_id;
+        std::vector<int> available_agvs = {1, 2, 3, 4};
 
         struct BinQuadrant {
             int part_type_clr = -1;
@@ -178,6 +179,12 @@ class AriacCompetition : public rclcpp::Node {
         bool FloorRobotPickConvPart(geometry_msgs::msg::Pose part_pose,geometry_msgs::msg::Pose camera_pose,int detection_time);
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
+        void CeilRobotMoveHome();
+        bool CeilRobotSetGripperState(bool enable);
+        void CeilRobotChangeGripper(std::string gripper_type, std::string station);
+        bool CeilRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
+        bool CeilRobotPlacePartOnKitTray(int agv_num, int quadrant);
+
         void populate_bin_part();
         int CheckFaultyPart(std::string order_id, int quadrant);
         void DisposePart();
@@ -188,6 +195,11 @@ class AriacCompetition : public rclcpp::Node {
         bool FloorRobotMovetoTarget();
         bool FloorRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf);
         void FloorRobotWaitForAttach(double timeout);
+        bool FloorRobotReachableWorkspace(int quadrant);
+
+        bool CeilRobotMovetoTarget();
+        bool CeilRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf);
+        void CeilRobotWaitForAttach(double timeout);
 
         geometry_msgs::msg::Quaternion SetRobotOrientation(double rotation);
 
@@ -201,12 +213,14 @@ class AriacCompetition : public rclcpp::Node {
         void AddModelToPlanningScene(std::string name, std::string mesh_file, geometry_msgs::msg::Pose model_pose);
         void AddModelsToPlanningScene();
         
-        rclcpp::Node::SharedPtr node_;
+        rclcpp::Node::SharedPtr floor_robot_node_;
+        rclcpp::Node::SharedPtr ceil_robot_node_;
         rclcpp::Executor::SharedPtr executor_;
         std::thread executor_thread_;
 
         // MoveIt Interfaces 
         moveit::planning_interface::MoveGroupInterfacePtr floor_robot_;
+        moveit::planning_interface::MoveGroupInterfacePtr ceil_robot_;
         moveit::planning_interface::PlanningSceneInterface planning_scene_;
         
         trajectory_processing::TimeOptimalTrajectoryGeneration totg_;
@@ -226,6 +240,7 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<ariac_msgs::msg::BinParts>::SharedPtr bin_parts_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::ConveyorParts>::SharedPtr conveyor_parts_subscriber_;
         rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr ceil_gripper_state_sub_;
 
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts1_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts2_rgb_camera_sub_;
@@ -274,8 +289,8 @@ class AriacCompetition : public rclcpp::Node {
         // Gripper State
         ariac_msgs::msg::VacuumGripperState floor_gripper_state_;
         ariac_msgs::msg::Part floor_robot_attached_part_;
-        ariac_msgs::msg::VacuumGripperState ceiling_gripper_state_;
-        ariac_msgs::msg::Part ceiling_robot_attached_part_;
+        ariac_msgs::msg::VacuumGripperState ceil_gripper_state_;
+        ariac_msgs::msg::Part ceil_robot_attached_part_;
 
         // Parts
         std::vector<group3::msg::Part> right_parts_;
@@ -287,6 +302,8 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Client<ariac_msgs::srv::PerformQualityCheck>::SharedPtr quality_checker_;
         rclcpp::Client<ariac_msgs::srv::ChangeGripper>::SharedPtr floor_robot_tool_changer_;
         rclcpp::Client<ariac_msgs::srv::VacuumGripperControl>::SharedPtr floor_robot_gripper_enable_;
+        rclcpp::Client<ariac_msgs::srv::ChangeGripper>::SharedPtr ceil_robot_tool_changer_;
+        rclcpp::Client<ariac_msgs::srv::VacuumGripperControl>::SharedPtr ceil_robot_gripper_enable_;
 
         // Sensor Callbacks
         bool kts1_camera_received_data = false;
@@ -318,6 +335,7 @@ class AriacCompetition : public rclcpp::Node {
         void right_bins_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
 
         void floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg);
+        void ceil_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg);
         
         void right_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
         void left_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
@@ -368,6 +386,18 @@ class AriacCompetition : public rclcpp::Node {
             {"left_bins", 3},
             {"right_bins", -3}};
 
+        std::map<std::string, double> gantry_positions_ = {
+            {"agv1", -4.686},
+            {"agv2", -1.078},
+            {"agv3", 1.392},
+            {"agv4", 4.961},
+            {"left_bins", 2.8},
+            {"right_bins", -2.8}};
+            
+            // gantry_x_axis_joint 2.6
+            // gantry_y_axis_joint -2.8
+            // gantry_rotation_joint -90 deg
+
         // Joint value targets for kitting stations
         std::map<std::string, double> floor_kts1_js_ = {
             {"linear_actuator_joint", 4.0},
@@ -377,6 +407,50 @@ class AriacCompetition : public rclcpp::Node {
             {"floor_wrist_1_joint", -1.57},
             {"floor_wrist_2_joint", -1.57},
             {"floor_wrist_3_joint", 0.0}};
+
+        // std::map<std::string, double> ceil_kts1_js_ = {
+        //     {"gantry_x_axis_joint", 5.783},
+        //     {"gantry_y_axis_joint", 6.255},
+        //     {"gantry_rotation_joint", 0},
+        //     {"ceiling_shoulder_pan_joint", 0.087},  // -5 deg
+        //     {"ceiling_shoulder_lift_joint", -1.0821},  // -62 deg
+        //     {"ceiling_elbow_joint", 1.221},  // 70 deg
+        //     {"ceiling_wrist_1_joint", 0.0},
+        //     {"ceiling_wrist_2_joint", 1.57},  // 90 deg
+        //     {"ceiling_wrist_3_joint", 0.0}};
+
+        std::map<std::string, double> ceil_kts1_js_ = {
+            {"gantry_x_axis_joint", 4.332},
+            {"gantry_y_axis_joint", 5.510},
+            {"gantry_rotation_joint", -1.57},
+            {"ceiling_shoulder_pan_joint", 0.0},  // -5 deg
+            {"ceiling_shoulder_lift_joint", -1.57},  // -62 deg
+            {"ceiling_elbow_joint", 1.57},  // 70 deg
+            {"ceiling_wrist_1_joint", 3.14},
+            {"ceiling_wrist_2_joint", -1.57},  // 90 deg
+            {"ceiling_wrist_3_joint", 0.0}};
+        
+        // std::map<std::string, double> ceil_kts2_js_ = {
+        //     {"gantry_x_axis_joint", 5.783},
+        //     {"gantry_y_axis_joint", -6.255},
+        //     {"gantry_rotation_joint", 3.141},
+        //     {"ceiling_shoulder_pan_joint", 0.087},  // -5 deg
+        //     {"ceiling_shoulder_lift_joint", -1.0821},  // -62 deg
+        //     {"ceiling_elbow_joint", 1.221},  // 70 deg
+        //     {"ceiling_wrist_1_joint", 0.0},
+        //     {"ceiling_wrist_2_joint", 1.57},  // 90 deg
+        //     {"ceiling_wrist_3_joint", 0.0}};
+
+        std::map<std::string, double> ceil_kts2_js_ = {
+            {"gantry_x_axis_joint", 4.332},
+            {"gantry_y_axis_joint", -5.235},
+            {"gantry_rotation_joint", -1.57},
+            {"ceiling_shoulder_pan_joint", 0.0},  // -5 deg
+            {"ceiling_shoulder_lift_joint", -1.57},  // -62 deg
+            {"ceiling_elbow_joint", 1.57},  // 70 deg
+            {"ceiling_wrist_1_joint", 3.14},
+            {"ceiling_wrist_2_joint", -1.57},  // 90 deg
+            {"ceiling_wrist_3_joint", 0.0}};
 
         std::map<std::string, double> conv_js_ = {
             {"linear_actuator_joint", 0},
@@ -396,6 +470,17 @@ class AriacCompetition : public rclcpp::Node {
             {"floor_wrist_1_joint", -1.57},
             {"floor_wrist_2_joint", -1.57},
             {"floor_wrist_3_joint", 0.0}};
+
+        std::map<std::string, double> ceil_conv_js_ = {
+            {"gantry_x_axis_joint", 7.3},
+            {"gantry_y_axis_joint", -2},
+            {"gantry_rotation_joint", 1.57}, //270 deg
+            {"ceiling_shoulder_pan_joint", 3.176},  // 0 deg
+            {"ceiling_shoulder_lift_joint", -3.77},  // 310 deg
+            {"ceiling_elbow_joint", 1.553},  // 55 deg
+            {"ceiling_wrist_1_joint", -0.9}, // 170 deg
+            {"ceiling_wrist_2_joint", 1.57},  // -90 deg
+            {"ceiling_wrist_3_joint", 1.57}};  // 0 deg
 
         // ADD POSES OF ALL 72 positions in BIN
         // ALL POSES IN WORLD FRAME FROM GAZEBO, DON'T MULTPLY POSE
