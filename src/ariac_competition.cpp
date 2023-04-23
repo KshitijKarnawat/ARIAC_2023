@@ -14,6 +14,7 @@
  */
 
 #include "../include/group3/ariac_competition.hpp"
+#include <string>
 
 AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
   node_(std::make_shared<rclcpp::Node>("floor_robot")),
@@ -457,6 +458,7 @@ void AriacCompetition::process_order() {
 void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   int type_color_key;  // Stores the key of the specific part in the bin map
   std::vector<std::array<int, 2>> keys;
+  std::vector<std::array<int, 2>> keys_dropped;
   int type_color;   // Stores type and color info: For ex: 101 -> Battery Green
   int check;
 
@@ -506,26 +508,25 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     // floor.PlacePartOnKitTray(part_info, current_order[0].GetKitting().get()->GetParts()[count][2], current_order[0].GetKitting().get()->GetTrayId());
     // floor_place_part_client(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
     FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-    
-    check = CheckFaultyPart(current_order[0].GetId().c_str(), current_order[0].GetKitting().get()->GetParts()[count][2]);
-    RCLCPP_INFO_STREAM(this->get_logger(),"Check Faulty Part Output " << check);
+    bin_map[i[0]].part_type_clr = -1;
 
-    if(check == 11 ||check == 21 || check == 31 || check == 41){
-      // TODO TODA:
-      // DisposePart()
-      // Attach Gripper
-      // Go to Home
-      // Throw part in bin
-      // Search for similar part
-      // Place
+    if (dropped_parts_.size() != 0) {
+      for (auto i : dropped_parts_) {
+        type_color_key = search_bin(i.type*10 + i.color);
+        RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+        FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key].part_pose, type_color_key);
+        FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+      }
+      dropped_parts_.clear();
     }
-    
     count++;
   }
-
+  int fu;
+  for (i = 1; i < 5; i++) {
+    fu = CheckFaultyPart(current_order[0].GetId(), i);
+  }
   move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
   FloorRobotMoveHome();
-
 }
 
 void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
@@ -1492,10 +1493,6 @@ bool AriacCompetition::FloorRobotPickBinPart(int part_clr,int part_type,geometry
   part_to_pick.color = part_clr;
   part_to_pick.type = part_type;
   floor_robot_attached_part_ = part_to_pick;
-  RCLCPP_INFO_STREAM(rclcpp::get_logger("CB"),
-                        "\n\n\n\033[0;91mThe floor robot attached part is 1: \033[0m" << std::to_string(part_to_pick.type) << " " << std::to_string(part_to_pick.color));
-  RCLCPP_INFO_STREAM(rclcpp::get_logger("CB"),
-                        "\n\n\n\033[0;91mThe floor robot attached part is: \033[0m" << std::to_string(floor_robot_attached_part_.type) << " " << std::to_string(floor_robot_attached_part_.color));
 
   // Move up slightly
   waypoints.clear();
@@ -1543,23 +1540,49 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
   }
 
   FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
-
+  int check;
   FloorRobotSetGripperState(false);
-
   std::string part_name = part_colors_[floor_robot_attached_part_.color] +
-                          "_" + part_types_[floor_robot_attached_part_.type];
+                            "_" + part_types_[floor_robot_attached_part_.type];
   floor_robot_->detachObject(part_name);
 
-  waypoints.clear();
-  waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                                part_drop_pose.position.z + 0.3,
-                                SetRobotOrientation(0)));
+  check = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  RCLCPP_INFO_STREAM(this->get_logger(),"Check Faulty Part Output " << check);
 
-  FloorRobotMoveCartesian(waypoints, 0.4, 0.1);
+  if(check == 11 ||check == 21 || check == 31 || check == 41){
 
+    FloorRobotSetGripperState(true);
+    FloorRobotWaitForAttach(5.0);
+    floor_robot_->attachObject(part_name);
+    FloorRobotMoveHome();
+    FloorRobotSetGripperState(false);
+    std::string part_name = part_colors_[floor_robot_attached_part_.color] +
+                            "_" + part_types_[floor_robot_attached_part_.type];
+    floor_robot_->detachObject(part_name);
+
+    planning_scene_.removeCollisionObjects({part_name});
+    dropped_parts_.push_back(floor_robot_attached_part_);
+    FloorRobotMoveHome();
+  } else{
+    FloorRobotSetGripperState(false);
+    std::string part_name = part_colors_[floor_robot_attached_part_.color] +
+                            "_" + part_types_[floor_robot_attached_part_.type];
+    floor_robot_->detachObject(part_name);
+
+    waypoints.clear();
+    waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                  part_drop_pose.position.z + 0.3,
+                                  SetRobotOrientation(0)));
+
+    FloorRobotMoveCartesian(waypoints, 0.4, 0.1);
+  }
+
+  if(check == 12 ||check == 22 || check == 32 || check == 42){
+    //flip
+  }
 }
 
-int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
+int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant_){
 
   // string order_id
   // ---
@@ -1570,7 +1593,7 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
   // ariac_msgs/QualityIssue quadrant2
   // ariac_msgs/QualityIssue quadrant3
   // ariac_msgs/QualityIssue quadrant4
-
+  RCLCPP_INFO_STREAM(this->get_logger(),"PerformQualityCheck" << order_id << " " << std::to_string(quadrant_));
   std::string srv_name = "/ariac/perform_quality_check";
 
   std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("perform_quality_check");
@@ -1594,7 +1617,8 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
     RCLCPP_ERROR(this->get_logger(), "Failed to call service PerformQualityCheck");
   }
   if (result.get()->valid_id && !result.get()->incorrect_tray){
-    if(!result.get()->quadrant1.all_passed && quadrant == 1){
+    if(!result.get()->quadrant1.all_passed && quadrant_ == 1){
+      RCLCPP_ERROR(this->get_logger(), "All nOK in 1");
       if(result.get()->quadrant1.faulty_part) { return 11; }//"Q1 : Faulty Part"; }
       if(result.get()->quadrant1.flipped_part) { return 12; }//"Q1 : Flipped Part"; }
       if(result.get()->quadrant1.incorrect_part_color) { return 13; }//"Q1 : Incorrect Part Color"; }
@@ -1602,7 +1626,8 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
       if(result.get()->quadrant1.missing_part) { return 15; }//"Q1 : Missing Part"; }
     }
 
-    if(!result.get()->quadrant2.all_passed && quadrant == 2){
+    if(!result.get()->quadrant2.all_passed && quadrant_ == 2){
+      RCLCPP_ERROR(this->get_logger(), "All nOK in 2");
       if(result.get()->quadrant2.faulty_part) { return 21; }//"Q2 : Faulty Part"; }
       if(result.get()->quadrant2.flipped_part) { return 22; }//"Q2 : Flipped Part"; }
       if(result.get()->quadrant2.incorrect_part_color) { return 23; }//"Q2 : Incorrect Part Color"; }
@@ -1610,7 +1635,8 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
       if(result.get()->quadrant2.missing_part) { return 25; }//"Q2 : Missing Part"; }
     }
 
-    if(!result.get()->quadrant3.all_passed && quadrant == 3){
+    if(!result.get()->quadrant3.all_passed && quadrant_ == 3){
+      RCLCPP_ERROR(this->get_logger(), "All nOK in 3");
       if(result.get()->quadrant3.faulty_part) { return 31; }//"Q3 : Faulty Part"; }
       if(result.get()->quadrant3.flipped_part) { return 32; }//"Q3 : Flipped Part"; }
       if(result.get()->quadrant3.incorrect_part_color) { return 33; }//"Q3 : Incorrect Part Color"; }
@@ -1618,7 +1644,8 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
       if(result.get()->quadrant3.missing_part) { return 35; }//"Q3 : Missing Part"; }
     }
 
-    if(!result.get()->quadrant4.all_passed && quadrant == 4){
+    if(!result.get()->quadrant4.all_passed && quadrant_ == 4){
+      RCLCPP_ERROR(this->get_logger(), "All nOK in 4");
       if(result.get()->quadrant4.faulty_part) { return 41; }//"Q4 : Faulty Part"; }
       if(result.get()->quadrant4.flipped_part) { return 42; }//"Q4 : Flipped Part"; }
       if(result.get()->quadrant4.incorrect_part_color) { return 43; }//"Q4 : Incorrect Part Color"; }
@@ -1630,7 +1657,7 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant){
   } else if(result.get()->incorrect_tray){
     return 2;
   }
-
+  RCLCPP_ERROR(this->get_logger(), "All OK");
   return 0;
 }
 

@@ -180,6 +180,7 @@ class AriacCompetition : public rclcpp::Node {
 
         void populate_bin_part();
         int CheckFaultyPart(std::string order_id, int quadrant);
+        void DisposePart();
 
 
     private:
@@ -279,6 +280,7 @@ class AriacCompetition : public rclcpp::Node {
         // Parts
         std::vector<group3::msg::Part> right_parts_;
         std::vector<group3::msg::Part> left_parts_;
+        std::vector<ariac_msgs::msg::Part> dropped_parts_;
         std::vector<geometry_msgs::msg::Pose> conv_parts_;
 
         // ARIAC Services
