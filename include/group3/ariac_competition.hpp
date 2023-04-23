@@ -179,8 +179,8 @@ class AriacCompetition : public rclcpp::Node {
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
         void populate_bin_part();
-        int CheckFaultyPart(std::string order_id, int quadrant);
-        void DisposePart();
+        std::vector<bool> CheckFaultyPart(std::string order_id, int quadrant);
+        void DisposePart(int agv_num, int quadrant);
 
 
     private:

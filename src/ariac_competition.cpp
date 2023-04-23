@@ -15,6 +15,7 @@
 
 #include "../include/group3/ariac_competition.hpp"
 #include <string>
+#include <unistd.h>
 
 AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
   node_(std::make_shared<rclcpp::Node>("floor_robot")),
@@ -520,10 +521,6 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       dropped_parts_.clear();
     }
     count++;
-  }
-  int fu;
-  for (i = 1; i < 5; i++) {
-    fu = CheckFaultyPart(current_order[0].GetId(), i);
   }
   move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
   FloorRobotMoveHome();
@@ -1363,7 +1360,6 @@ void AriacCompetition::FloorRobotPickandPlaceTray(int tray_idx , int agv_num){
   if (std::find(kts1_vec.begin(), kts1_vec.end(), tray_idx) != kts1_vec.end()) {
       auto tray_it = std::find(kts1_vec.begin(), kts1_vec.end(), tray_idx);
       tray_id = tray_it - kts1_vec.begin();
-      RCLCPP_INFO_STREAM(this->get_logger(),"Tray found in kts1" << tray_id);
       station = "kts1";
       tray_pose = tray_poses[tray_id];
       if (floor_gripper_state_.type != "tray_gripper") {
@@ -1381,8 +1377,6 @@ void AriacCompetition::FloorRobotPickandPlaceTray(int tray_idx , int agv_num){
   } else {
     RCLCPP_INFO_STREAM(this->get_logger(),"Tray not found");
   }
-
-  RCLCPP_INFO_STREAM(this->get_logger(), "\n\nTray Pose: " << tray_pose.position.x << " " << tray_pose.position.y << " " << tray_pose.position.z);
   
   double tray_rotation = GetYaw(tray_pose);
   
@@ -1535,25 +1529,17 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
                                  part_drop_pose.position.z + 0.2, SetRobotOrientation(0)));
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                              part_drop_pose.position.z + part_heights_[floor_robot_attached_part_.type] + drop_height_,
+                              part_drop_pose.position.z + part_heights_[floor_robot_attached_part_.type] + drop_height_ + 0.1,
                               SetRobotOrientation(0)));
   }
 
   FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
-  int check;
-  FloorRobotSetGripperState(false);
-  std::string part_name = part_colors_[floor_robot_attached_part_.color] +
-                            "_" + part_types_[floor_robot_attached_part_.type];
-  floor_robot_->detachObject(part_name);
 
-  check = CheckFaultyPart(current_order[0].GetId(), quadrant);
-  RCLCPP_INFO_STREAM(this->get_logger(),"Check Faulty Part Output " << check);
+  auto QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  usleep(2500);
+  QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
 
-  if(check == 11 ||check == 21 || check == 31 || check == 41){
-
-    FloorRobotSetGripperState(true);
-    FloorRobotWaitForAttach(5.0);
-    floor_robot_->attachObject(part_name);
+  if(QualityCheck[6] || QualityCheck[12] || QualityCheck[18] || QualityCheck[24]){
     FloorRobotMoveHome();
     FloorRobotSetGripperState(false);
     std::string part_name = part_colors_[floor_robot_attached_part_.color] +
@@ -1577,23 +1563,13 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
     FloorRobotMoveCartesian(waypoints, 0.4, 0.1);
   }
 
-  if(check == 12 ||check == 22 || check == 32 || check == 42){
+  if(QualityCheck[5] || QualityCheck[11] || QualityCheck[17] || QualityCheck[23]){
     //flip
   }
 }
 
-int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant_){
+std::vector<bool> AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant_){
 
-  // string order_id
-  // ---
-  // bool valid_id
-  // bool all_passed
-  // bool incorrect_tray
-  // ariac_msgs/QualityIssue quadrant1
-  // ariac_msgs/QualityIssue quadrant2
-  // ariac_msgs/QualityIssue quadrant3
-  // ariac_msgs/QualityIssue quadrant4
-  RCLCPP_INFO_STREAM(this->get_logger(),"PerformQualityCheck" << order_id << " " << std::to_string(quadrant_));
   std::string srv_name = "/ariac/perform_quality_check";
 
   std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("perform_quality_check");
@@ -1612,55 +1588,42 @@ int AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant_){
   auto result = client->async_send_request(request);
 
   if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
-    RCLCPP_INFO_STREAM(this->get_logger(),"PerformQualityCheck response: " << result.get()->all_passed);
+    RCLCPP_INFO_STREAM(this->get_logger(),"PerformQualityCheck Done");
   } else {
     RCLCPP_ERROR(this->get_logger(), "Failed to call service PerformQualityCheck");
   }
-  if (result.get()->valid_id && !result.get()->incorrect_tray){
-    if(!result.get()->quadrant1.all_passed && quadrant_ == 1){
-      RCLCPP_ERROR(this->get_logger(), "All nOK in 1");
-      if(result.get()->quadrant1.faulty_part) { return 11; }//"Q1 : Faulty Part"; }
-      if(result.get()->quadrant1.flipped_part) { return 12; }//"Q1 : Flipped Part"; }
-      if(result.get()->quadrant1.incorrect_part_color) { return 13; }//"Q1 : Incorrect Part Color"; }
-      if(result.get()->quadrant1.incorrect_part_type) { return 14; }//"Q1 : Incorrect Part Type"; }
-      if(result.get()->quadrant1.missing_part) { return 15; }//"Q1 : Missing Part"; }
-    }
 
-    if(!result.get()->quadrant2.all_passed && quadrant_ == 2){
-      RCLCPP_ERROR(this->get_logger(), "All nOK in 2");
-      if(result.get()->quadrant2.faulty_part) { return 21; }//"Q2 : Faulty Part"; }
-      if(result.get()->quadrant2.flipped_part) { return 22; }//"Q2 : Flipped Part"; }
-      if(result.get()->quadrant2.incorrect_part_color) { return 23; }//"Q2 : Incorrect Part Color"; }
-      if(result.get()->quadrant2.incorrect_part_type) { return 24; }//"Q2 : Incorrect Part Type"; }
-      if(result.get()->quadrant2.missing_part) { return 25; }//"Q2 : Missing Part"; }
-    }
+  std::vector<bool> QualityCheck;
+  QualityCheck.push_back(result.get()->valid_id);
+  QualityCheck.push_back(result.get()->all_passed);
+  QualityCheck.push_back(result.get()->incorrect_tray);
+  QualityCheck.push_back(result.get()->quadrant1.all_passed);
+  QualityCheck.push_back(result.get()->quadrant1.missing_part);
+  QualityCheck.push_back(result.get()->quadrant1.flipped_part);
+  QualityCheck.push_back(result.get()->quadrant1.faulty_part);
+  QualityCheck.push_back(result.get()->quadrant1.incorrect_part_type);
+  QualityCheck.push_back(result.get()->quadrant1.incorrect_part_color);
+  QualityCheck.push_back(result.get()->quadrant2.all_passed);
+  QualityCheck.push_back(result.get()->quadrant2.missing_part);
+  QualityCheck.push_back(result.get()->quadrant2.flipped_part);
+  QualityCheck.push_back(result.get()->quadrant2.faulty_part);
+  QualityCheck.push_back(result.get()->quadrant2.incorrect_part_type);
+  QualityCheck.push_back(result.get()->quadrant2.incorrect_part_color);
+  QualityCheck.push_back(result.get()->quadrant3.all_passed);
+  QualityCheck.push_back(result.get()->quadrant3.missing_part);
+  QualityCheck.push_back(result.get()->quadrant3.flipped_part);
+  QualityCheck.push_back(result.get()->quadrant3.faulty_part);
+  QualityCheck.push_back(result.get()->quadrant3.incorrect_part_type);
+  QualityCheck.push_back(result.get()->quadrant3.incorrect_part_color);
+  QualityCheck.push_back(result.get()->quadrant4.all_passed);
+  QualityCheck.push_back(result.get()->quadrant4.missing_part);
+  QualityCheck.push_back(result.get()->quadrant4.flipped_part);
+  QualityCheck.push_back(result.get()->quadrant4.faulty_part);
+  QualityCheck.push_back(result.get()->quadrant4.incorrect_part_type);
+  QualityCheck.push_back(result.get()->quadrant4.incorrect_part_color);
 
-    if(!result.get()->quadrant3.all_passed && quadrant_ == 3){
-      RCLCPP_ERROR(this->get_logger(), "All nOK in 3");
-      if(result.get()->quadrant3.faulty_part) { return 31; }//"Q3 : Faulty Part"; }
-      if(result.get()->quadrant3.flipped_part) { return 32; }//"Q3 : Flipped Part"; }
-      if(result.get()->quadrant3.incorrect_part_color) { return 33; }//"Q3 : Incorrect Part Color"; }
-      if(result.get()->quadrant3.incorrect_part_type) { return 34; }//"Q3 : Incorrect Part Type"; }
-      if(result.get()->quadrant3.missing_part) { return 35; }//"Q3 : Missing Part"; }
-    }
-
-    if(!result.get()->quadrant4.all_passed && quadrant_ == 4){
-      RCLCPP_ERROR(this->get_logger(), "All nOK in 4");
-      if(result.get()->quadrant4.faulty_part) { return 41; }//"Q4 : Faulty Part"; }
-      if(result.get()->quadrant4.flipped_part) { return 42; }//"Q4 : Flipped Part"; }
-      if(result.get()->quadrant4.incorrect_part_color) { return 43; }//"Q4 : Incorrect Part Color"; }
-      if(result.get()->quadrant4.incorrect_part_type) { return 44; }//"Q4 : Incorrect Part Type"; }
-      if(result.get()->quadrant4.missing_part) { return 45; }//"Q4 : Missing Part"; }
-    }
-  } else if(!result.get()->valid_id){
-    return 1; 
-  } else if(result.get()->incorrect_tray){
-    return 2;
-  }
-  RCLCPP_ERROR(this->get_logger(), "All OK");
-  return 0;
+  return QualityCheck;
 }
-
 
 // int main(int argc, char *argv[])
 // {
