@@ -77,6 +77,11 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
   topic_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   options.callback_group = topic_cb_group_;
 
+  rclcpp::SubscriptionOptions options2;
+
+  topic_cb_group2_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  options2.callback_group = topic_cb_group2_;
+
   // kts1_camera_sub_ = this->create_subscription<ariac_msgs::msg::BasicLogicalCameraImage>(
   //     "/ariac/sensors/kts1_basic_camera/image", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
   //     std::bind(&AriacCompetition::kts1_camera_cb, this, std::placeholders::_1), options);
@@ -115,11 +120,11 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
 
   floor_gripper_state_sub_ = this->create_subscription<ariac_msgs::msg::VacuumGripperState>(
         "/ariac/floor_robot_gripper_state", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
-        std::bind(&AriacCompetition::floor_gripper_state_cb, this, std::placeholders::_1), options);
+        std::bind(&AriacCompetition::floor_gripper_state_cb, this, std::placeholders::_1), options2);
 
   ceil_gripper_state_sub_ = this->create_subscription<ariac_msgs::msg::VacuumGripperState>(
         "/ariac/ceiling_robot_gripper_state", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
-        std::bind(&AriacCompetition::ceil_gripper_state_cb, this, std::placeholders::_1), options);
+        std::bind(&AriacCompetition::ceil_gripper_state_cb, this, std::placeholders::_1), options2);
 
   right_part_detector_sub_ = this->create_subscription<group3::msg::Parts>(
         "/right_bin_part_detector", rclcpp::SensorDataQoS(),
@@ -547,9 +552,21 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     if (dropped_parts_.size() != 0) {
       for (auto i : dropped_parts_) {
         type_color_key = search_bin(i.type*10 + i.color);
-        RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
-        FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key].part_pose, type_color_key);
-        FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+        if (type_color_key == -1) {
+          break;
+        }
+        if (FloorRobotReachableWorkspace(type_color_key)) {
+          CeilRobotMoveHome();
+          RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+          FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key].part_pose, type_color_key);
+          FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+        } else {
+          FloorRobotMoveHome();
+          RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+          CeilRobotPickBinPart(i.color,i.type, bin_map[type_color_key].part_pose, type_color_key);
+          CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
+        }
+        bin_map[type_color_key].part_type_clr = -1;
       }
       dropped_parts_.clear();
     }
@@ -897,7 +914,7 @@ void AriacCompetition::floor_gripper_state_cb(const ariac_msgs::msg::VacuumGripp
 
 void AriacCompetition::ceil_gripper_state_cb(const ariac_msgs::msg::VacuumGripperState::ConstSharedPtr msg){
   ceil_gripper_state_ = *msg;
-  RCLCPP_INFO_STREAM(get_logger(), "Ceil Robot State: " << ceil_gripper_state_.type << " " << ceil_gripper_state_.enabled << " " << ceil_gripper_state_.attached);
+  // RCLCPP_INFO_STREAM(get_logger(), "Ceil Robot State: " << ceil_gripper_state_.type << " " << ceil_gripper_state_.enabled << " " << ceil_gripper_state_.attached);
 }
 
 // void AriacCompetition::kts1_camera_cb(
@@ -1620,7 +1637,7 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
   if (floor_robot_attached_part_.type == ariac_msgs::msg::Part::PUMP)
   {
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                                part_drop_pose.position.z + part_heights_[floor_robot_attached_part_.type] + drop_height_,
+                                part_drop_pose.position.z + part_heights_[floor_robot_attached_part_.type] + drop_height_ + 0.1,
                                 SetRobotOrientation(0)));
   }
   else
@@ -1639,15 +1656,19 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
   QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
 
   if(QualityCheck[6] || QualityCheck[12] || QualityCheck[18] || QualityCheck[24]){
-    FloorRobotMoveHome();
+    floor_robot_->setJointValueTarget(floor_disposal_poses_[agv_num]);
+    FloorRobotMovetoTarget();
     FloorRobotSetGripperState(false);
     std::string part_name = part_colors_[floor_robot_attached_part_.color] +
                             "_" + part_types_[floor_robot_attached_part_.type];
     floor_robot_->detachObject(part_name);
 
     planning_scene_.removeCollisionObjects({part_name});
+    dropped_parts_.clear();
     dropped_parts_.push_back(floor_robot_attached_part_);
-    FloorRobotMoveHome();
+    floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_["agv" + std::to_string(agv_num)]);
+    floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
+    FloorRobotMovetoTarget();
   } else{
     FloorRobotSetGripperState(false);
     std::string part_name = part_colors_[floor_robot_attached_part_.color] +
@@ -1957,9 +1978,9 @@ bool AriacCompetition::CeilRobotPickBinPart(int part_clr,int part_type,geometry_
   part_to_pick.type = part_type;
   ceil_robot_attached_part_ = part_to_pick;
   RCLCPP_INFO_STREAM(rclcpp::get_logger("CB"),
-                        "\n\n\n\033[0;91mThe floor robot attached part is 1: \033[0m" << std::to_string(part_to_pick.type) << " " << std::to_string(part_to_pick.color));
+                        "\n\n\n\033[0;91mThe ceiling robot attached part is 1: \033[0m" << std::to_string(part_to_pick.type) << " " << std::to_string(part_to_pick.color));
   RCLCPP_INFO_STREAM(rclcpp::get_logger("CB"),
-                        "\n\n\n\033[0;91mThe floor robot attached part is: \033[0m" << std::to_string(ceil_robot_attached_part_.type) << " " << std::to_string(ceil_robot_attached_part_.color));
+                        "\n\n\n\033[0;91mThe ceiling robot attached part is: \033[0m" << std::to_string(ceil_robot_attached_part_.type) << " " << std::to_string(ceil_robot_attached_part_.color));
 
   // Move up slightly
   waypoints.clear();
@@ -1992,7 +2013,7 @@ bool AriacCompetition::CeilRobotPlacePartOnKitTray(int agv_num, int quadrant) {
   if (ceil_robot_attached_part_.type == ariac_msgs::msg::Part::PUMP)
   {
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                                part_drop_pose.position.z + part_heights_[ceil_robot_attached_part_.type] + drop_height_,
+                                part_drop_pose.position.z + part_heights_[ceil_robot_attached_part_.type] + drop_height_ + 0.05,
                                 SetRobotOrientation(0)));
   }
   else
@@ -2000,26 +2021,64 @@ bool AriacCompetition::CeilRobotPlacePartOnKitTray(int agv_num, int quadrant) {
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
                                  part_drop_pose.position.z + 0.2, SetRobotOrientation(0)));
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                              part_drop_pose.position.z + part_heights_[ceil_robot_attached_part_.type] + drop_height_,
+                              part_drop_pose.position.z + part_heights_[ceil_robot_attached_part_.type] + drop_height_ + 0.05,
                               SetRobotOrientation(0)));
   }
 
   CeilRobotMoveCartesian(waypoints, 0.1, 0.1);
 
-  CeilRobotSetGripperState(false);
+  // CeilRobotSetGripperState(false);
 
-  std::string part_name = part_colors_[ceil_robot_attached_part_.color] +
-                          "_" + part_types_[ceil_robot_attached_part_.type];
+  // std::string part_name = part_colors_[ceil_robot_attached_part_.color] +
+  //                         "_" + part_types_[ceil_robot_attached_part_.type];
   
-  RCLCPP_INFO_STREAM(this->get_logger(), "Detaching: " << part_name);
-  ceil_robot_->detachObject(part_name);
+  // RCLCPP_INFO_STREAM(this->get_logger(), "Detaching: " << part_name);
+  // ceil_robot_->detachObject(part_name);
 
-  waypoints.clear();
-  waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                                part_drop_pose.position.z + 0.3,
-                                SetRobotOrientation(0)));
+  // waypoints.clear();
+  // waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+  //                               part_drop_pose.position.z + 0.3,
+  //                               SetRobotOrientation(0)));
 
-  CeilRobotMoveCartesian(waypoints, 0.4, 0.1);
+  // CeilRobotMoveCartesian(waypoints, 0.4, 0.1);
+
+  auto QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  usleep(2500);
+  QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+
+  if(QualityCheck[6] || QualityCheck[12] || QualityCheck[18] || QualityCheck[24]){
+    ceil_robot_->setJointValueTarget(ceil_disposal_poses_[agv_num]);
+    CeilRobotMovetoTarget();
+    CeilRobotSetGripperState(false);
+    std::string part_name = part_colors_[ceil_robot_attached_part_.color] +
+                            "_" + part_types_[ceil_robot_attached_part_.type];
+    ceil_robot_->detachObject(part_name);
+
+    planning_scene_.removeCollisionObjects({part_name});
+    dropped_parts_.push_back(ceil_robot_attached_part_);
+
+    // ceil_robot_->setJointValueTarget("gantry_y_axis_joint", gantry_positions_["agv" + std::to_string(agv_num)]);
+    // ceil_robot_->setJointValueTarget("gantry_x_axis_joint", 3.835);
+    // ceil_robot_->setJointValueTarget("gantry_rotation_joint", -1.57);
+    // CeilRobotMovetoTarget();
+    CeilRobotMoveHome();
+  } else{
+    CeilRobotSetGripperState(false);
+    std::string part_name = part_colors_[ceil_robot_attached_part_.color] +
+                            "_" + part_types_[ceil_robot_attached_part_.type];
+    ceil_robot_->detachObject(part_name);
+
+    waypoints.clear();
+    waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                  part_drop_pose.position.z + 0.3,
+                                  SetRobotOrientation(0)));
+
+    CeilRobotMoveCartesian(waypoints, 0.4, 0.1);
+  }
+
+  if(QualityCheck[5] || QualityCheck[11] || QualityCheck[17] || QualityCheck[23]){
+    //flip
+  }
 
 }
 

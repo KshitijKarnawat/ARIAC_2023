@@ -285,6 +285,7 @@ class AriacCompetition : public rclcpp::Node {
 
         // Callback Groups
         rclcpp::CallbackGroup::SharedPtr topic_cb_group_;
+        rclcpp::CallbackGroup::SharedPtr topic_cb_group2_;
 
         // Gripper State
         ariac_msgs::msg::VacuumGripperState floor_gripper_state_;
@@ -394,10 +395,6 @@ class AriacCompetition : public rclcpp::Node {
             {"left_bins", 2.8},
             {"right_bins", -2.8}};
             
-            // gantry_x_axis_joint 2.6
-            // gantry_y_axis_joint -2.8
-            // gantry_rotation_joint -90 deg
-
         // Joint value targets for kitting stations
         std::map<std::string, double> floor_kts1_js_ = {
             {"linear_actuator_joint", 4.0},
@@ -407,49 +404,36 @@ class AriacCompetition : public rclcpp::Node {
             {"floor_wrist_1_joint", -1.57},
             {"floor_wrist_2_joint", -1.57},
             {"floor_wrist_3_joint", 0.0}};
-
-        // std::map<std::string, double> ceil_kts1_js_ = {
-        //     {"gantry_x_axis_joint", 5.783},
-        //     {"gantry_y_axis_joint", 6.255},
-        //     {"gantry_rotation_joint", 0},
-        //     {"ceiling_shoulder_pan_joint", 0.087},  // -5 deg
-        //     {"ceiling_shoulder_lift_joint", -1.0821},  // -62 deg
-        //     {"ceiling_elbow_joint", 1.221},  // 70 deg
-        //     {"ceiling_wrist_1_joint", 0.0},
-        //     {"ceiling_wrist_2_joint", 1.57},  // 90 deg
-        //     {"ceiling_wrist_3_joint", 0.0}};
+        
+        std::map<std::string, double> floor_kts2_js_ = {
+            {"linear_actuator_joint", -4.0},
+            {"floor_shoulder_pan_joint", -1.57},
+            {"floor_shoulder_lift_joint", -1.57},
+            {"floor_elbow_joint", 1.57},
+            {"floor_wrist_1_joint", -1.57},
+            {"floor_wrist_2_joint", -1.57},
+            {"floor_wrist_3_joint", 0.0}};
 
         std::map<std::string, double> ceil_kts1_js_ = {
             {"gantry_x_axis_joint", 4.332},
             {"gantry_y_axis_joint", 5.510},
             {"gantry_rotation_joint", -1.57},
-            {"ceiling_shoulder_pan_joint", 0.0},  // -5 deg
-            {"ceiling_shoulder_lift_joint", -1.57},  // -62 deg
-            {"ceiling_elbow_joint", 1.57},  // 70 deg
+            {"ceiling_shoulder_pan_joint", 0.0},
+            {"ceiling_shoulder_lift_joint", -1.57},
+            {"ceiling_elbow_joint", 1.57}, 
             {"ceiling_wrist_1_joint", 3.14},
-            {"ceiling_wrist_2_joint", -1.57},  // 90 deg
+            {"ceiling_wrist_2_joint", -1.57},
             {"ceiling_wrist_3_joint", 0.0}};
-        
-        // std::map<std::string, double> ceil_kts2_js_ = {
-        //     {"gantry_x_axis_joint", 5.783},
-        //     {"gantry_y_axis_joint", -6.255},
-        //     {"gantry_rotation_joint", 3.141},
-        //     {"ceiling_shoulder_pan_joint", 0.087},  // -5 deg
-        //     {"ceiling_shoulder_lift_joint", -1.0821},  // -62 deg
-        //     {"ceiling_elbow_joint", 1.221},  // 70 deg
-        //     {"ceiling_wrist_1_joint", 0.0},
-        //     {"ceiling_wrist_2_joint", 1.57},  // 90 deg
-        //     {"ceiling_wrist_3_joint", 0.0}};
 
         std::map<std::string, double> ceil_kts2_js_ = {
             {"gantry_x_axis_joint", 4.332},
             {"gantry_y_axis_joint", -5.235},
             {"gantry_rotation_joint", -1.57},
-            {"ceiling_shoulder_pan_joint", 0.0},  // -5 deg
-            {"ceiling_shoulder_lift_joint", -1.57},  // -62 deg
-            {"ceiling_elbow_joint", 1.57},  // 70 deg
+            {"ceiling_shoulder_pan_joint", 0.0},
+            {"ceiling_shoulder_lift_joint", -1.57}, 
+            {"ceiling_elbow_joint", 1.57},
             {"ceiling_wrist_1_joint", 3.14},
-            {"ceiling_wrist_2_joint", -1.57},  // 90 deg
+            {"ceiling_wrist_2_joint", -1.57},
             {"ceiling_wrist_3_joint", 0.0}};
 
         std::map<std::string, double> conv_js_ = {
@@ -462,32 +446,99 @@ class AriacCompetition : public rclcpp::Node {
             {"floor_wrist_3_joint", 0.0},
             {"floor_gripper_joint",0}};
 
-        std::map<std::string, double> floor_kts2_js_ = {
-            {"linear_actuator_joint", -4.0},
-            {"floor_shoulder_pan_joint", -1.57},
-            {"floor_shoulder_lift_joint", -1.57},
-            {"floor_elbow_joint", 1.57},
-            {"floor_wrist_1_joint", -1.57},
-            {"floor_wrist_2_joint", -1.57},
-            {"floor_wrist_3_joint", 0.0}};
-
         std::map<std::string, double> ceil_conv_js_ = {
             {"gantry_x_axis_joint", 7.3},
             {"gantry_y_axis_joint", -2},
-            {"gantry_rotation_joint", 1.57}, //270 deg
-            {"ceiling_shoulder_pan_joint", 3.176},  // 0 deg
-            {"ceiling_shoulder_lift_joint", -3.77},  // 310 deg
-            {"ceiling_elbow_joint", 1.553},  // 55 deg
-            {"ceiling_wrist_1_joint", -0.9}, // 170 deg
-            {"ceiling_wrist_2_joint", 1.57},  // -90 deg
-            {"ceiling_wrist_3_joint", 1.57}};  // 0 deg
+            {"gantry_rotation_joint", 1.57},
+            {"ceiling_shoulder_pan_joint", 3.176},
+            {"ceiling_shoulder_lift_joint", -3.77},
+            {"ceiling_elbow_joint", 1.553},
+            {"ceiling_wrist_1_joint", -0.9},
+            {"ceiling_wrist_2_joint", 1.57},
+            {"ceiling_wrist_3_joint", 1.57}};
 
-        // ADD POSES OF ALL 72 positions in BIN
-        // ALL POSES IN WORLD FRAME FROM GAZEBO, DON'T MULTPLY POSE
-        // std::map<int, std::vector<float>> bin_quadrant_positions_ = {
-        //     {1, std::vector<float>{0.1, -0.1, 0.05}},
-        // };
+        // Joint value targets for disposal Bin
+        std::map<int, std::map<std::string, double>> floor_disposal_poses_ = {
+            {4 , std::map<std::string, double>{
+                {"linear_actuator_joint", 4.8},
+                {"floor_shoulder_pan_joint", 3.07},
+                {"floor_shoulder_lift_joint", -1.57},
+                {"floor_elbow_joint", 1.57},
+                {"floor_wrist_1_joint", -1.57},
+                {"floor_wrist_2_joint", -1.57},
+                {"floor_wrist_3_joint", 0.0},
+                {"floor_gripper_joint",0}}},
+            {2 , std::map<std::string, double>{
+                {"linear_actuator_joint", -0.132},
+                {"floor_shoulder_pan_joint", 0},
+                {"floor_shoulder_lift_joint", -1.57},
+                {"floor_elbow_joint", 1.57},
+                {"floor_wrist_1_joint", -1.57},
+                {"floor_wrist_2_joint", -1.57},
+                {"floor_wrist_3_joint", 0.0},
+                {"floor_gripper_joint",0}}},
+            {3 , std::map<std::string, double>{
+                {"linear_actuator_joint", -0.132},
+                {"floor_shoulder_pan_joint", 0},
+                {"floor_shoulder_lift_joint", -1.57},
+                {"floor_elbow_joint", 1.57},
+                {"floor_wrist_1_joint", -1.57},
+                {"floor_wrist_2_joint", -1.57},
+                {"floor_wrist_3_joint", 0.0},
+                {"floor_gripper_joint",0}}},
+            {1 , std::map<std::string, double>{
+                {"linear_actuator_joint", -4.8},
+                {"floor_shoulder_pan_joint", 2.97},
+                {"floor_shoulder_lift_joint", -1.57},
+                {"floor_elbow_joint", 1.57},
+                {"floor_wrist_1_joint", -1.57},
+                {"floor_wrist_2_joint", -1.57},
+                {"floor_wrist_3_joint", 0.0},
+                {"floor_gripper_joint",0}}}
+        };
 
+        std::map<int, std::map<std::string, double>> ceil_disposal_poses_ = {
+            {4 , std::map<std::string, double>{
+                {"gantry_x_axis_joint", 5.392},
+                {"gantry_y_axis_joint", 4.455},
+                {"gantry_rotation_joint", -1.52},
+                {"ceiling_shoulder_pan_joint", -0.45},
+                {"ceiling_shoulder_lift_joint", 0.24},
+                {"ceiling_elbow_joint", -0.86},
+                {"ceiling_wrist_1_joint", 3.77},
+                {"ceiling_wrist_2_joint", -1.1},
+                {"ceiling_wrist_3_joint", 1.57}}},
+            {2, std::map<std::string, double>{
+                {"gantry_x_axis_joint", 3.903},
+                {"gantry_y_axis_joint", -0.687},
+                {"gantry_rotation_joint", 4.43},
+                {"ceiling_shoulder_pan_joint", -3.29},
+                {"ceiling_shoulder_lift_joint", -2.71},
+                {"ceiling_elbow_joint", -0.44},
+                {"ceiling_wrist_1_joint", 6.28},
+                {"ceiling_wrist_2_joint", -4.56},
+                {"ceiling_wrist_3_joint", 0.35}}},
+            {3, std::map<std::string, double>{
+                {"gantry_x_axis_joint", 3.903},
+                {"gantry_y_axis_joint", -0.687},
+                {"gantry_rotation_joint", 4.43},
+                {"ceiling_shoulder_pan_joint", -3.29},
+                {"ceiling_shoulder_lift_joint", -2.71},
+                {"ceiling_elbow_joint", -0.44},
+                {"ceiling_wrist_1_joint", 6.28},
+                {"ceiling_wrist_2_joint", -4.56},
+                {"ceiling_wrist_3_joint", 0.35}}},
+            {1, std::map<std::string, double>{
+                {"gantry_x_axis_joint", 5.396},
+                {"gantry_y_axis_joint", -4.982},
+                {"gantry_rotation_joint", -1.57},
+                {"ceiling_shoulder_pan_joint", -0.44},
+                {"ceiling_shoulder_lift_joint", 0.24},
+                {"ceiling_elbow_joint", -0.87},
+                {"ceiling_wrist_1_joint", 3.79},
+                {"ceiling_wrist_2_joint", -1.12},
+                {"ceiling_wrist_3_joint", 1.68}}}
+        };
 
 };
 
