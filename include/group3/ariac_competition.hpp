@@ -188,7 +188,7 @@ class AriacCompetition : public rclcpp::Node {
         void populate_bin_part();
         std::vector<bool> CheckFaultyPart(std::string order_id, int quadrant);
         void DisposePart(int agv_num, int quadrant);
-
+        void FlipPart(int part_clr, int part_type, int agv_num, int part_quad);
 
     private:
 
@@ -539,6 +539,48 @@ class AriacCompetition : public rclcpp::Node {
                 {"ceiling_wrist_2_joint", -1.12},
                 {"ceiling_wrist_3_joint", 1.68}}}
         };
+
+        // std::map<std::string, double> ceil_flip_part_js_ = {
+        //     {"gantry_x_axis_joint", 2.892},
+        //     {"gantry_y_axis_joint", 0.373},
+        //     {"gantry_rotation_joint", -1.57}, // -89 deg
+        //     {"ceiling_shoulder_pan_joint", 0.069},  // 4 deg
+        //     {"ceiling_shoulder_lift_joint", -0.872},  // -50 deg
+        //     {"ceiling_elbow_joint", -0.994},  // -57 deg
+        //     {"ceiling_wrist_1_joint", 3.42}, // 196 deg
+        //     {"ceiling_wrist_2_joint", -1.57},  // -90 deg
+        //     {"ceiling_wrist_3_joint", -0.0523}};  // -3 deg
+
+        std::map<std::string, double> ceil_flip_part_js_ = {
+            {"gantry_x_axis_joint", 2.971},
+            {"gantry_y_axis_joint", 0.359},
+            {"gantry_rotation_joint", -1.57}, // -89 deg
+            {"ceiling_shoulder_pan_joint", -0.069},  // 4 deg
+            {"ceiling_shoulder_lift_joint", -0.872},  // -50 deg
+            {"ceiling_elbow_joint", -0.994},  // -57 deg
+            {"ceiling_wrist_1_joint", 3.42}, // 196 deg
+            {"ceiling_wrist_2_joint", -1.57},  // -90 deg
+            {"ceiling_wrist_3_joint", -0.0523}};  // -3 deg
+
+        std::map<std::string, double> ceil_flip_part2_js_ = {
+            {"gantry_x_axis_joint", 3.77001},
+            {"gantry_y_axis_joint", -0.416054},
+            {"gantry_rotation_joint", -1.81436}, // -89 deg
+            {"ceiling_shoulder_pan_joint", -0.688833},  // 4 deg
+            {"ceiling_shoulder_lift_joint", -0.34172},  // -50 deg
+            {"ceiling_elbow_joint", -1.11438},  // -57 deg
+            {"ceiling_wrist_1_joint", 1.45713}, // 196 deg
+            {"ceiling_wrist_2_joint", -2.25962},  // -90 deg
+            {"ceiling_wrist_3_joint", -1.32557}};  // -3 deg
+
+        std::map<std::string, double> floor_flip_part_js_ = {
+            {"linear_actuator_joint", 0.0},
+            {"floor_shoulder_pan_joint", 0},
+            {"floor_shoulder_lift_joint", -1.57},
+            {"floor_elbow_joint", 1.57},
+            {"floor_wrist_1_joint", -3.14},
+            {"floor_wrist_2_joint", -1.57},
+            {"floor_wrist_3_joint", 0.0}};
 
 };
 
