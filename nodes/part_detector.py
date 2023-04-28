@@ -311,7 +311,7 @@ class ImageSubscriber(Node):
 
     # Display image
     img = current_frame
-    img = img[:, 223:443]
+    img = img[180:479, 223:443]
     img_hsv = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2HSV)
     lower_red = np.array([0, 55, 25])
     upper_red = np.array([10, 255, 255])

@@ -27,17 +27,17 @@ sensors:
     type: break_beam
     visualize_fov: true
     pose:
-      xyz: [-0.36, 3.5, 0.88]
+      xyz: [-0.36, 3.15, 0.88]
       rpy: [0, 0, pi]
 
   conv_basic_camera:
     type: basic_logical_camera
     pose:
-      xyz: [-0.573, 3.5, 1.526]
+      xyz: [-0.573, 3.2, 1.526]
       rpy: [pi/2, pi/2, 0]
   
   conv_rgb_camera:
     type: rgb_camera
     pose:
-      xyz: [-0.573, 3.5, 1.526]
+      xyz: [-0.573, 3.2, 1.526]
       rpy: [pi/2, pi/2, 0]

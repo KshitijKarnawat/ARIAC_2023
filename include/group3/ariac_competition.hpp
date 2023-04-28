@@ -120,6 +120,7 @@ class AriacCompetition : public rclcpp::Node {
         bool submit_orders_{false};
         int competition_state_ = -1;
         bool competition_started_{false};
+        int conveyor_size;
 
         std::vector<Orders> orders;
         std::vector<Orders> incomplete_orders;
@@ -172,11 +173,12 @@ class AriacCompetition : public rclcpp::Node {
         int determine_agv(int);
 
         void FloorRobotMoveHome();
+        void FloorRobotMoveConveyorHome();
         bool FloorRobotSetGripperState(bool enable);
         void FloorRobotChangeGripper(std::string gripper_type, std::string station);
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
         bool FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
-        bool FloorRobotPickConvPart(geometry_msgs::msg::Pose part_pose,geometry_msgs::msg::Pose camera_pose,int detection_time);
+        bool FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part part_rgb);
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
         void CeilRobotMoveHome();
@@ -246,6 +248,7 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts2_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr left_bins_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr right_bins_rgb_camera_sub_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr conv_rgb_camera_sub_;
 
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts1_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;
@@ -257,6 +260,7 @@ class AriacCompetition : public rclcpp::Node {
 
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr right_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr left_part_detector_sub_;
+        rclcpp::Subscription<group3::msg::Part>::SharedPtr conv_part_detector_sub_;
 
         bool breakbeam_status;
         float breakbeam_time_sec;
@@ -267,6 +271,7 @@ class AriacCompetition : public rclcpp::Node {
         cv::Mat kts2_rgb_camera_image_;
         cv::Mat left_bins_rgb_camera_image_;
         cv::Mat right_bins_rgb_camera_image_;
+        cv::Mat conv_rgb_camera_image_;
 
         // Sensor poses
         geometry_msgs::msg::Pose kts1_camera_pose_;
@@ -283,6 +288,9 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<geometry_msgs::msg::Pose> left_bins_parts_;
         std::vector<geometry_msgs::msg::Pose> right_bins_parts_;
 
+        //Quadrants
+        std::vector<int> occupied_quadrants;
+
         // Callback Groups
         rclcpp::CallbackGroup::SharedPtr topic_cb_group_;
         rclcpp::CallbackGroup::SharedPtr topic_cb_group2_;
@@ -298,6 +306,8 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<group3::msg::Part> left_parts_;
         std::vector<ariac_msgs::msg::Part> dropped_parts_;
         std::vector<geometry_msgs::msg::Pose> conv_parts_;
+
+        group3::msg::Part conv_rgb_parts_;
 
         // ARIAC Services
         rclcpp::Client<ariac_msgs::srv::PerformQualityCheck>::SharedPtr quality_checker_;
@@ -321,6 +331,7 @@ class AriacCompetition : public rclcpp::Node {
 
         bool right_part_detector_received_data = false;
         bool left_part_detector_received_data = false;
+        bool conv_part_detector_received_data = false; 
 
         void kts1_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void kts2_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
@@ -340,6 +351,7 @@ class AriacCompetition : public rclcpp::Node {
         
         void right_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
         void left_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
+        void conv_part_detector_cb(const group3::msg::Part::ConstSharedPtr msg); //
 
         // Constants
         double kit_tray_thickness_ = 0.011;
@@ -445,6 +457,17 @@ class AriacCompetition : public rclcpp::Node {
             {"floor_wrist_2_joint", -1.57},
             {"floor_wrist_3_joint", 0.0},
             {"floor_gripper_joint",0}};
+
+        std::map<std::string, double> floor_conv_home_js_ = {
+            // {"linear_actuator_joint", -2.85},
+            {"linear_actuator_joint", -2.8},
+            {"floor_shoulder_pan_joint", 3.14},
+            {"floor_shoulder_lift_joint", -0.942478},
+            {"floor_elbow_joint", 2.04204},
+            {"floor_wrist_1_joint", -2.67035},
+            {"floor_wrist_2_joint", -1.57},
+            {"floor_wrist_3_joint", 0.0}
+        };
 
         std::map<std::string, double> ceil_conv_js_ = {
             {"gantry_x_axis_joint", 7.3},
