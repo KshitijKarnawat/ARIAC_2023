@@ -22,13 +22,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    # floor_commander = Node(
-    #     package="group3",
-    #     executable="floor_exe",
-    #     output="screen",
-    #     parameters=generate_parameters()
-    # )
-
     # MoveIt node
     moveit = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
