@@ -102,6 +102,10 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
       "/ariac/sensors/conv_basic_camera/image", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
       std::bind(&AriacCompetition::conv_camera_cb, this, std::placeholders::_1), options);
   
+  conv_part_detector_sub_ = this->create_subscription<group3::msg::Part>(
+        "/conveyor_part_detector", rclcpp::SensorDataQoS(),
+        std::bind(&AriacCompetition::conv_part_detector_cb, this, std::placeholders::_1), options);
+  
   kts1_rgb_camera_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
       "/ariac/sensors/kts1_rgb_camera/rgb_image", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile(),
       std::bind(&AriacCompetition::kts1_rgb_camera_cb, this, std::placeholders::_1), options);
@@ -138,9 +142,10 @@ AriacCompetition::AriacCompetition(std::string node_name): Node(node_name),
         "/ariac/sensors/breakbeam_0/status", rclcpp::SensorDataQoS(),
         std::bind(&AriacCompetition::breakbeam_cb, this, std::placeholders::_1), options);
 
-  conv_part_detector_sub_ = this->create_subscription<group3::msg::Part>(
-        "/conveyor_part_detector", rclcpp::SensorDataQoS(),
-        std::bind(&AriacCompetition::conv_part_detector_cb, this, std::placeholders::_1), options);
+  breakbeam1_sub_ = this->create_subscription<ariac_msgs::msg::BreakBeamStatus>(
+        "/ariac/sensors/breakbeam_1/status", rclcpp::SensorDataQoS(),
+        std::bind(&AriacCompetition::breakbeam1_cb, this, std::placeholders::_1), options);
+
 
   // quality_checker_ = this->create_client<ariac_msgs::srv::PerformQualityCheck>("/ariac/perform_quality_check");
 
@@ -345,6 +350,7 @@ void AriacCompetition::populate_bin_part(){
   int count_right = 0;
   int count_left = 0;
   for (auto part : right_bin){
+    occupied_quadrants.push_back(part[2]);
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = bin_quadrant_poses[part[2]];
     count_right++;
@@ -352,12 +358,16 @@ void AriacCompetition::populate_bin_part(){
   }
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Right Information populated");
   for (auto part : left_bin){
+    occupied_quadrants.push_back(part[2]);
     bin_map[part[2]].part_type_clr = (part[1]*10 + part[0]);
     bin_map[part[2]].part_pose = bin_quadrant_poses[part[2]];
     count_left++;
     RCLCPP_INFO_STREAM(this->get_logger(), "Bin left Information populated with " << bin_map[part[2]].part_type_clr << " " << bin_map[part[2]].part_pose.position.x << " " << part[2]);
   }
   RCLCPP_INFO_STREAM(this->get_logger(), "Bin Left Information populated");
+  for (unsigned int i = 0; i < occupied_quadrants.size(); i++){
+  RCLCPP_INFO_STREAM(this->get_logger(), "Occupied Quadrants"<< occupied_quadrants[i]);
+  }
 }
 
 void AriacCompetition::conveyor_parts_callback(ariac_msgs::msg::ConveyorParts::SharedPtr msg) {
@@ -496,7 +506,7 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   populate_bin_part();
 
   if (conveyor_size == conveyor_parts.size()){
-    floor_robot_->setJointValueTarget("linear_actuator_joint", -2.8);
+    floor_robot_->setJointValueTarget("linear_actuator_joint", -2.75);
     floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 3.14);
     floor_robot_->setJointValueTarget("floor_shoulder_lift_joint", -0.942478);
     FloorRobotMovetoTarget();
@@ -504,7 +514,20 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   }
 
   while (conveyor_parts.size()!=0){
+    // while (!breakbeam1_status){}
+
+    // if(breakbeam1_status){
+    //   RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m In bb1 loop \033[0m");
+    //   std::vector<geometry_msgs::msg::Pose> part_pose;
+    //   group3::msg::Part part_rgb;
+    //   part_pose = conv_parts_;
+    //   part_rgb = conv_rgb_parts_;
+    //   FloorRobotCorrectConveyor(part_pose, part_rgb);
+    // }
+
     while (!breakbeam_status){}
+    
+    
 
     if (breakbeam_status){
         RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Breakbeam triggered \033[0m");
@@ -514,10 +537,10 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
         part_pose = conv_parts_;
         part_rgb = conv_rgb_parts_;
         FloorRobotPickConvPart(part_pose, part_rgb);
-        conveyor_parts.pop_back();
   }
   }
 
+  populate_bin_part();
   for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
     type_color = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
     type_color_key = search_bin(type_color);
@@ -1059,6 +1082,7 @@ void AriacCompetition::conv_part_detector_cb(
         RCLCPP_INFO(get_logger(), "Received data from Left part detector node");
         conv_part_detector_received_data = true;
     }
+
     conv_rgb_parts_ = *msg;
 }
 
@@ -1070,13 +1094,26 @@ void AriacCompetition::breakbeam_cb(const ariac_msgs::msg::BreakBeamStatus::Cons
     }
     breakbeam_time_sec = msg->header.stamp.sec;
     breakbeam_status = msg->object_detected;
-    if (breakbeam_status == true){
-      RCLCPP_INFO_STREAM(get_logger(), "\033[0;91m Part detected by breakbeam at time stamp \033[0m" << breakbeam_time_sec << " Time now is " << now().seconds());
-    //   wait_flag = true;
-    //   while(floor_pick_conv_part_client(conv_parts_[0],conv_camera_pose_,breakbeam_time_sec)){
-    //     sleep(10);
-    //   }
-    //   wait_flag = false;
+
+    if (breakbeam_trigger == false && breakbeam_status == true){
+      conveyor_parts.pop_back();
+      breakbeam_trigger = true;
+    }
+
+    if (breakbeam_trigger == true && breakbeam_status == false){
+      breakbeam_trigger = false;
+    }
+}
+
+void AriacCompetition::breakbeam1_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg){
+    if (!breakbeam1_received_data)
+    {
+        RCLCPP_INFO(get_logger(), "Received data from breakbeam node");
+        breakbeam1_received_data = true;
+    }
+    breakbeam1_status = msg->object_detected;
+    if (breakbeam1_status == true){
+      RCLCPP_INFO_STREAM(get_logger(), "\033[0;91m Part detected by breakbeam1 \033[0m");
     }
 }
 
@@ -1629,7 +1666,7 @@ bool AriacCompetition::FloorRobotPickBinPart(int part_clr,int part_type,geometry
     waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
                                   part_pose.position.z + part_heights_[part_type] + pick_offset_, SetRobotOrientation(part_rotation)));
 
-    FloorRobotMoveCartesian(waypoints, 0.3, 0.1);
+    FloorRobotMoveCartesian(waypoints, 0.2, 0.1);
     FloorRobotSetGripperState(true);
     FloorRobotWaitForAttach(3.0);
   }
@@ -1680,7 +1717,7 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
   else
   {
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
-                                 part_drop_pose.position.z + 0.2, SetRobotOrientation(0)));
+                                 part_drop_pose.position.z + 0.3, SetRobotOrientation(0)));
     waypoints.push_back(BuildPose(part_drop_pose.position.x, part_drop_pose.position.y,
                               part_drop_pose.position.z + part_heights_[floor_robot_attached_part_.type] + drop_height_ + 0.1,
                               SetRobotOrientation(0)));
@@ -1764,47 +1801,90 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
 
   std::vector<geometry_msgs::msg::Pose> waypoints;
   geometry_msgs::msg::Pose starting_pose = floor_robot_->getCurrentPose().pose;
+  
 
   if (part_type == ariac_msgs::msg::Part::REGULATOR){
       RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Detetcted REGULATOR \033[0m");
       starting_pose.position.x = part_pose_.position.x;
-      starting_pose.position.y += 0.01;
-      starting_pose.position.z = part_pose_.position.z + part_heights_[part_type];
+      starting_pose.position.y -= 0.4;
+      waypoints.push_back(starting_pose);
+      FloorRobotMoveCartesian(waypoints, 1, 1);
+      waypoints.clear();
+
+      while (!breakbeam1_status){}
+      starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0009;
       waypoints.push_back(starting_pose);
       FloorRobotSetGripperState(true);
-      FloorRobotMoveCartesian(waypoints, 0.2, 0.2);
+      FloorRobotMoveCartesian(waypoints, 1, 1);
+
+      // RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Detetcted REGULATOR \033[0m");
+      // starting_pose.position.x = part_pose_.position.x;
+      // starting_pose.position.y += 0.04;
+      // starting_pose.position.z = part_pose_.position.z + part_heights_[part_type]+ 0.0009;
+      // waypoints.push_back(starting_pose);
+      // FloorRobotSetGripperState(true);
+      // FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
+      
+      
 
   } 
 
-  //Tune values for pump, currently wont work in all cases
   else if (part_type == ariac_msgs::msg::Part::PUMP) {
       RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Detetcted PUMP \033[0m");
+      // starting_pose.position.x = part_pose_.position.x;
+      // starting_pose.position.y -= 0.25;
+      // starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.00136;
+      // waypoints.push_back(starting_pose);
+      // FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
+      // waypoints.clear();
+
+      // while (!breakbeam1_status){}
       starting_pose.position.x = part_pose_.position.x;
-      // starting_pose.position.y -= 0.16;
-      starting_pose.position.z = part_pose_.position.z + part_heights_[part_type];
+      starting_pose.position.y -= 0.08;
+      starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0013;
+      
+      
       tf2::Quaternion tf_q;
-      tf_q.setRPY(0, 3.14159, 0);
+      tf_q.setRPY(-0.0349066, 3.14159, 0);
 
-      geometry_msgs::msg::Quaternion q;
+      geometry_msgs::msg::Quaternion q_or;
 
-      q.x = tf_q.x();
-      q.y = tf_q.y();
-      q.z = tf_q.z();
-      q.w = tf_q.w();
+      q_or.x = tf_q.x();
+      q_or.y = tf_q.y();
+      q_or.z = tf_q.z();
+      q_or.w = tf_q.w();
 
       waypoints.push_back(BuildPose(starting_pose.position.x, starting_pose.position.y,
-                                starting_pose.position.z + 0.0015, q));
-      FloorRobotSetGripperState(true);
-      FloorRobotMoveCartesian(waypoints, 0.4, 0.4);
-      // waypoints.clear();
-      // starting_pose.position.z += 0.5;
+                                starting_pose.position.z, q_or));
+
       // waypoints.push_back(starting_pose);
-      // FloorRobotMoveCartesian(waypoints, 1, 0.1);
+      // waypoints.clear();
+      // tf2::Quaternion tf_q;
+      // tf_q.setRPY(-0.0349066, 3.14159, 0);
+
+      // geometry_msgs::msg::Quaternion q_or;
+
+      // q_or.x = tf_q.x();
+      // q_or.y = tf_q.y();
+      // q_or.z = tf_q.z();
+      // q_or.w = tf_q.w();
+
+      // waypoints.push_back(BuildPose(starting_pose.position.x, starting_pose.position.y,
+      //                           starting_pose.position.z, q_or));
+      FloorRobotSetGripperState(true);
+      FloorRobotMoveCartesian(waypoints, 0.5, 0.5);
   }
+      
   else{
       RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m NOT REG or PUMP \033[0m");
       starting_pose.position.x = part_pose_.position.x;
-      // starting_pose.position.y -= 0.1;
+      starting_pose.position.y -= 0.4;
+      waypoints.push_back(starting_pose);
+      FloorRobotMoveCartesian(waypoints, 1, 1);
+      waypoints.clear();
+
+      while (!breakbeam1_status){}
+      
       starting_pose.position.z = part_pose_.position.z + part_heights_[part_type];
       waypoints.push_back(starting_pose);
       FloorRobotSetGripperState(true);
@@ -1812,60 +1892,50 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
   }
 
   waypoints.clear();
-
-  tf2::Quaternion tf_q1;
-  tf_q1.setRPY(0, 3.14159, 0);
-
-  geometry_msgs::msg::Quaternion q1;
-
-  q1.x = tf_q1.x();
-  q1.y = tf_q1.y();
-  q1.z = tf_q1.z();
-  q1.w = tf_q1.w();
-  starting_pose.position.z += 0.4;
-  waypoints.push_back(BuildPose(starting_pose.position.x, starting_pose.position.y,
-                              starting_pose.position.z, q1));
-  FloorRobotMoveCartesian(waypoints, 1, 1);
-  waypoints.clear();
-  
-  
-  // FloorRobotMoveCartesian(waypoints, 0.5, 0.5); // works for sensor
-   //works for battery and sensor
-  // FloorRobotWaitForAttach(2.0);
-  // Add part to planning scene
   geometry_msgs::msg::Pose current_pose = floor_robot_->getCurrentPose().pose;
   std::string part_name = part_colors_[part_clr] + "_" + part_types_[part_type];
   AddModelToPlanningScene(part_name, part_types_[part_type] + ".stl", current_pose);
   floor_robot_->attachObject(part_name);
-  // FloorRobotSetGripperState(true); 
 
-  // RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Gripper state is  \033[0m" << std::to_string(floor_gripper_state_.enabled) << " " << std::to_string(floor_gripper_state_.attached));
+  starting_pose.position.z += 0.4;
 
-
-  
+  waypoints.push_back(starting_pose);
+  FloorRobotMoveCartesian(waypoints, 1, 1);
+  waypoints.clear();
 
   floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_[bin_side]);
   floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
   FloorRobotMovetoTarget();
+  waypoints.clear();
 
   
   geometry_msgs::msg::Pose set_pose = bin_quadrant_poses[q];
   RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Pose to quadrant is \033[0m" << set_pose.position.x << " " << set_pose.position.y << " " << set_pose.position.z);
-  waypoints.clear();
+
+  if (part_type == ariac_msgs::msg::Part::PUMP){
+    tf2::Quaternion tf_q;
+    tf_q.setRPY(-0.0349066, 3.14159, 0);
+
+    geometry_msgs::msg::Quaternion q_or;
+
+    q_or.x = tf_q.x();
+    q_or.y = tf_q.y();
+    q_or.z = tf_q.z();
+    q_or.w = tf_q.w();
+    waypoints.push_back(BuildPose(set_pose.position.x, set_pose.position.y,
+                                set_pose.position.z + part_heights_[part_type] + 0.2 + drop_height_, q_or));
+  }
+  
+  else{
   waypoints.push_back(BuildPose(set_pose.position.x, set_pose.position.y,
                                 set_pose.position.z + part_heights_[part_type] + 0.2 + drop_height_, SetRobotOrientation(0)));
-  // geometry_msgs::msg::Pose new_pose;
-  // new_pose.position.x = set_pose.position.x;
-  // new_pose.position.y = set_pose.position.y;
-  // new_pose.position.z = set_pose.position.z + part_heights_[part_type] + drop_height_;
-  // new_pose.position.z = set_pose.position.z + 0.2;
-  // waypoints.push_back(BuildPose(set_pose.position.x, set_pose.position.y,
-  //                               set_pose.position.z + part_heights_[part_type] + drop_height_, SetRobotOrientation(0)));
+  }
+
   FloorRobotMoveCartesian(waypoints, 1, 1);
   waypoints.clear();
 
   geometry_msgs::msg::Pose new_pose = floor_robot_->getCurrentPose().pose;
-  new_pose.position.z -= 0.222;
+  new_pose.position.z -= 0.2;
   waypoints.push_back(new_pose);
   FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
 
@@ -1873,24 +1943,22 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
   floor_robot_->detachObject(part_name);
   
   RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Part detatched\033[0m");
-  // while (!floor_gripper_state_.enabled){
-  //   FloorRobotSetGripperState(false);
-  //   floor_robot_->detachObject(part_name);
-  // }
 
   waypoints.clear();
   waypoints.push_back(BuildPose(set_pose.position.x, set_pose.position.y,
                                 set_pose.position.z + 0.4, SetRobotOrientation(0)));
   FloorRobotMoveCartesian(waypoints, 1, 1);
   waypoints.clear();
-  floor_robot_->setJointValueTarget("linear_actuator_joint", -2.8);
+  floor_robot_->setJointValueTarget("linear_actuator_joint", -2.75);
   floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 3.14);
   // floor_robot_->setJointValueTarget("floor_shoulder_lift_joint", -0.942478);
   FloorRobotMovetoTarget();
   FloorRobotMoveConveyorHome();
   RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Final move done\033[0m");
-  
 
+  if (conveyor_parts.size()==0){
+    return true;
+  }
 
 }
 
@@ -2017,7 +2085,7 @@ void AriacCompetition::FlipPart(int part_clr, int part_type, int agv_num, int pa
   }
   else
   {
-    ceil_pose.position.x += offset - part_heights_[part_type] - 0.0005;;
+    ceil_pose.position.x += offset - part_heights_[part_type] - 0.0005;
   }
   
   waypoints.push_back(ceil_pose);

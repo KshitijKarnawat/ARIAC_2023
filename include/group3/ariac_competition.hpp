@@ -179,6 +179,7 @@ class AriacCompetition : public rclcpp::Node {
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
         bool FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
         bool FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part part_rgb);
+        bool FloorRobotCorrectConveyor(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part part_rgb);
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
         void CeilRobotMoveHome();
@@ -257,12 +258,15 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr conv_camera_sub_;
 
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam1_sub_;
 
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr right_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr left_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Part>::SharedPtr conv_part_detector_sub_;
 
         bool breakbeam_status;
+        bool breakbeam_trigger;
+        bool breakbeam1_status;
         float breakbeam_time_sec;
         bool wait_flag = false;
         
@@ -279,6 +283,7 @@ class AriacCompetition : public rclcpp::Node {
         geometry_msgs::msg::Pose left_bins_camera_pose_;
         geometry_msgs::msg::Pose right_bins_camera_pose_;
         geometry_msgs::msg::Pose conv_camera_pose_;
+        std::vector<geometry_msgs::msg::Pose> conv_correction;
 
         // Trays
         std::vector<geometry_msgs::msg::Pose> kts1_trays_;
@@ -323,6 +328,7 @@ class AriacCompetition : public rclcpp::Node {
         bool right_bins_camera_received_data = false;
         bool conv_camera_received_data = false;
         bool breakbeam_received_data = false;
+        bool breakbeam1_received_data = false;
 
         bool kts1_rgb_camera_received_data = false;
         bool kts2_rgb_camera_received_data = false;
@@ -340,6 +346,7 @@ class AriacCompetition : public rclcpp::Node {
         void conv_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
 
         void breakbeam_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
+        void breakbeam1_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
 
         void kts1_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
         void kts2_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
@@ -460,9 +467,9 @@ class AriacCompetition : public rclcpp::Node {
 
         std::map<std::string, double> floor_conv_home_js_ = {
             // {"linear_actuator_joint", -2.85},
-            {"linear_actuator_joint", -2.8},
+            {"linear_actuator_joint", -2.75},
             {"floor_shoulder_pan_joint", 3.14},
-            {"floor_shoulder_lift_joint", -0.942478},
+            {"floor_shoulder_lift_joint", -0.9162979},
             {"floor_elbow_joint", 2.04204},
             {"floor_wrist_1_joint", -2.67035},
             {"floor_wrist_2_joint", -1.57},

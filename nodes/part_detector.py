@@ -75,10 +75,10 @@ class ImageSubscriber(Node):
     # Display image
     img = current_frame
 
-    img_bin_tr = img[28:223, 333:530]
-    img_bin_tl = img[28:223, 92:285]
-    img_bin_br = img[267:458, 333:530]
-    img_bin_bl = img[267:458, 92:285]
+    img_bin_tr = img[28:223, 360:550]
+    img_bin_tl = img[28:223, 118:309]
+    img_bin_br = img[267:458, 360:550]
+    img_bin_bl = img[267:458, 118:309]
 
     image = [img_bin_br, img_bin_bl, img_bin_tl, img_bin_tr]
     i = 0
@@ -194,10 +194,15 @@ class ImageSubscriber(Node):
     # Display image
     img = current_frame
 
-    img_bin_tr = img[28:223, 333:530]
-    img_bin_tl = img[28:223, 92:285]
-    img_bin_br = img[267:458, 333:530]
-    img_bin_bl = img[267:458, 92:285]
+    img_bin_tr = img[28:223, 360:550]
+    img_bin_tl = img[28:223, 118:309]
+    img_bin_br = img[267:458, 360:550]
+    img_bin_bl = img[267:458, 118:309]
+    #old values to verify
+    # img_bin_tr = img[28:223, 333:530]
+    # img_bin_tl = img[28:223, 92:285]
+    # img_bin_br = img[267:458, 333:530]
+    # img_bin_bl = img[267:458, 92:285]
 
     image = [img_bin_bl, img_bin_br, img_bin_tr, img_bin_tl]
     i = 0
@@ -311,7 +316,7 @@ class ImageSubscriber(Node):
 
     # Display image
     img = current_frame
-    img = img[180:479, 223:443]
+    img = img[150:479, 230:443]
     img_hsv = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2HSV)
     lower_red = np.array([0, 55, 25])
     upper_red = np.array([10, 255, 255])
@@ -547,7 +552,7 @@ class ImageSubscriber(Node):
       if perimeter < 250:
         # self.get_logger().info("Battery")
         return 10
-      elif area_gray < 20:
+      elif area_gray < 25:
         # self.get_logger().info("Pump")
         return 11
       elif perimeter > 250:
