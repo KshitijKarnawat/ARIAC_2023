@@ -226,6 +226,9 @@ void AriacCompetition::end_competition_timer_callback() {
       RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
       RCLCPP_INFO_STREAM(this->get_logger(), std::string("\033[92;5m") + std::string("All Orders Submitted and Ending Competition") + std::string("\033[0m"));
       RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
+      // Exit spin loop to end competition
+      executor_->cancel();
+      executor_thread_.join();
       rclcpp::shutdown();
     } else {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to call trigger service");
