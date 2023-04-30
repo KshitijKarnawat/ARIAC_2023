@@ -9,4 +9,10 @@
 #include <vector>
 #include <string>
 
+/**
+ * @brief Function to return detected tray IDs in the image. 
+ * 
+ * @param frame 
+ * @return std::vector<int> 
+ */
 std::vector<int> tray_detect(cv::Mat frame);
