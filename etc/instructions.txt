@@ -1,8 +1,8 @@
-ARIAC 2023 - RWA2 (Group 3)
+ARIAC 2023 - RWA3 & RWA4 (Group 3)
 
 -> Overview
 
-This repository contains the code for the RWA2 submission for the Course ENPM663 - Building a Manufacturing Robotic Software System
+This repository contains the code for the RWA3 and RWA4 submissions for the Course ENPM663 - Building a Manufacturing Robotic Software System
 
 -> GitHub repository: https://github.com/Sanchitkedia/ARIAC_2023 (main branch)
 
@@ -19,6 +19,8 @@ This repository contains the code for the RWA2 submission for the Course ENPM663
 - ROS2(Galactic)
 - ARIAC 2023 Workspace
 - Ubuntu 20.04 LTS
+- OpenCV: Requires both Python and C++ versions. C++ version can be installed from [link](https://www.geeksforgeeks.org/how-to-install-opencv-in-c-on-linux/)
+- cv_bridge: Can be installed using - ```sudo apt-get install ros-galactic-cv-bridge```
 
 -> Steps to Build the Package
 
@@ -35,8 +37,14 @@ This repository contains the code for the RWA2 submission for the Course ENPM663
 
     source /opt/ros/galactic/setup.bash
     source <Your workspace>/install/setup.bash
-    ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa2
-    ros2 run group3 group3
+
+    # For RWA3
+    ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa3 competitor_pkg:=group3 sensor_config:=group3_sensors
+    
+    # For RWA4
+    # ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa4 competitor_pkg:=group3 sensor_config:=group3_sensors
+    
+    ros2 launch group3 group3.launch.py
 
 -> Package Structure
 .
