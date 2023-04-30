@@ -32,16 +32,6 @@ set(msg_files
   "msg/Parts.msg"
 )
 
-# set(srv_files
-#   "srv/FloorChangeGripper.srv"
-#   "srv/FloorPickTray.srv"
-#   "srv/FloorPickPartBin.srv"
-#   "srv/FloorPickPartConv.srv"
-#   "srv/FloorPlacePart.srv"
-# )
-
-# find_package(opencv_python REQUIRED)
-
 include_directories(include/group3)
 install(DIRECTORY include config launch rviz DESTINATION share/${PROJECT_NAME}/)
 
@@ -64,27 +54,14 @@ ament_target_dependencies(group3_exe rclcpp ariac_msgs std_srvs geometry_msgs st
 
 rosidl_target_interfaces(group3_exe ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-# add_executable(group3_exe src/ariac_competition.cpp)
-# ament_target_dependencies(group3_exe rclcpp ariac_msgs std_srvs geometry_msgs std_msgs moveit_ros_planning_interface tf2 orocos_kdl tf2_ros tf2_geometry_msgs shape_msgs)
-
-# rosidl_target_interfaces(group3_exe ${PROJECT_NAME} "rosidl_typesupport_cpp")
-
-
-# add_executable(floor_exe src/floor_robot.cpp)
-# ament_target_dependencies(floor_exe rclcpp ariac_msgs std_srvs geometry_msgs std_msgs moveit_ros_planning_interface tf2 orocos_kdl tf2_ros tf2_geometry_msgs shape_msgs)
-
-# rosidl_target_interfaces(floor_exe ${PROJECT_NAME} "rosidl_typesupport_cpp")
-
 install(TARGETS
   group3_exe
-  # floor_exe
   DESTINATION lib/${PROJECT_NAME}
 )
 
 ament_python_install_package(${PROJECT_NAME} SCRIPTS_DESTINATION lib/${PROJECT_NAME})
 
 install(PROGRAMS
-  # nodes/image_saver.py
   nodes/part_detector.py
   DESTINATION lib/${PROJECT_NAME}
 )

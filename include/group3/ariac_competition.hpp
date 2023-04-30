@@ -126,24 +126,29 @@ class AriacCompetition : public rclcpp::Node {
 
         bool conveyor_parts_flag_{false};   // Flag to check if conveyor information is populated
         bool submit_orders_{false};    // Flag to track when to submit orders
-        int competition_state_ = -1; 
+        int competition_state_ = -1;  // Competition state
         bool competition_started_{false};   // Flag to check if competition is started
         int conveyor_size;  // Number of parts spawning on the conveyor 
+        bool high_priority_order_{false}; // Flag to check if there is a high priority order
+        bool doing_incomplete = false; // Flag to check if the robot is doing an incomplete order
+        int kittingorder_count_ = 0; // Number of kitting Tasks in the order
+        int kittingorder_count_incomplete_ = 0; // Number of kitting Tasks in the incomplete order
 
-        std::vector<Orders> orders;
-        std::vector<Orders> incomplete_orders;
-        std::vector<Orders> current_order;
-        std::vector<Orders> submitted_orders;
+
+        std::vector<Orders> orders; // Vector of orders
+        std::vector<Orders> incomplete_orders; // Vector of incomplete orders
+        std::vector<Orders> current_order; // Vector of current order
+        std::vector<Orders> submitted_orders; // Vector of submitted orders
 
         std::vector<int> tray_aruco_id;     // Available Trays
-        std::vector<int> available_agvs = {1, 2, 3, 4};
+        std::vector<int> available_agvs = {1, 2, 3, 4}; // Available AGVs
 
         struct BinQuadrant {
             int part_type_clr = -1;
             geometry_msgs::msg::Pose part_pose;
         };
 
-        std::vector<int> conveyor_parts;
+        std::vector<int> conveyor_parts;   // Vector of parts on the conveyor
         std::map<int, BinQuadrant> bin_map;    // Holds part information in 72 possible bin locations (8 bins x 9 locations)
 
         /**
@@ -189,7 +194,7 @@ class AriacCompetition : public rclcpp::Node {
         * @brief Method to process the order
         * 
         */
-        void process_order();
+        bool process_order();
 
         /**
         * @brief Method to submit the orders
@@ -202,7 +207,7 @@ class AriacCompetition : public rclcpp::Node {
         * @brief Method to do the kitting task
         * 
         */
-        void do_kitting(std::vector<Orders>);
+        bool do_kitting(std::vector<Orders>);
 
         /**
         * @brief Method to perform the assembly task
@@ -726,6 +731,7 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<int> occupied_quadrants;
 
         // Callback Groups
+        rclcpp::CallbackGroup::SharedPtr order_cb_group_;
         rclcpp::CallbackGroup::SharedPtr topic_cb_group_;
         rclcpp::CallbackGroup::SharedPtr topic_cb_group2_;
 

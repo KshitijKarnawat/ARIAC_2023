@@ -1,5 +1,4 @@
 #include "part_type_detect.hpp"
-#include <iostream>
 
 int detect_type(cv::Mat img, std::vector<cv::Point> cnt) {
     int type;
