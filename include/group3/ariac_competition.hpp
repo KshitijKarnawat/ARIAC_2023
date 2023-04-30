@@ -7,8 +7,8 @@
  * @author Sahruday Patti (sahruday@umd.edu)
  * @author Kshitij Karnawat (kshitij@umd.edu)
  * @brief Implementation of RWA2 for ARIAC 2023 (Group 3)
- * @version 0.2
- * @date 2023-03-04
+ * @version 0.3
+ * @date 2023-04-30
  * 
  * 
  */
@@ -96,15 +96,9 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
-// #include "group3/srv/floor_change_gripper.hpp"
-// #include "group3/srv/floor_pick_tray.hpp"
-// #include "group3/srv/floor_pick_part_bin.hpp"
-// #include "group3/srv/floor_place_part.hpp"
-
 #include "group3/msg/part.hpp"
 #include "group3/msg/parts.hpp"
 
-// #include "../include/group3/floor_robot.hpp"
 #include "tray_id_detect.hpp"
 #include "part_type_detect.hpp"
 #include "map_poses.hpp"
@@ -130,118 +124,534 @@ struct Part {
 class AriacCompetition : public rclcpp::Node {
     public:
 
-        bool conveyor_parts_flag_{false};
-        bool submit_orders_{false};
-        int competition_state_ = -1;
-        bool competition_started_{false};
-        int conveyor_size;
-        bool high_priority_order_{false};
-        bool doing_incomplete = false;
-        int kittingorder_count_ = 0;
-        int kittingorder_count_incomplete_ = 0;
+        bool conveyor_parts_flag_{false};   // Flag to check if conveyor information is populated
+        bool submit_orders_{false};    // Flag to track when to submit orders
+        int competition_state_ = -1;  // Competition state
+        bool competition_started_{false};   // Flag to check if competition is started
+        int conveyor_size;  // Number of parts spawning on the conveyor 
+        bool high_priority_order_{false}; // Flag to check if there is a high priority order
+        bool doing_incomplete = false; // Flag to check if the robot is doing an incomplete order
+        int kittingorder_count_ = 0; // Number of kitting Tasks in the order
+        int kittingorder_count_incomplete_ = 0; // Number of kitting Tasks in the incomplete order
 
 
-        std::vector<Orders> orders;
-        std::vector<Orders> incomplete_orders;
-        std::vector<Orders> current_order;
-        std::vector<Orders> submitted_orders;
+        std::vector<Orders> orders; // Vector of orders
+        std::vector<Orders> incomplete_orders; // Vector of incomplete orders
+        std::vector<Orders> current_order; // Vector of current order
+        std::vector<Orders> submitted_orders; // Vector of submitted orders
 
-        std::vector<int> tray_aruco_id;
-        std::vector<int> available_agvs = {1, 2, 3, 4};
+        std::vector<int> tray_aruco_id;     // Available Trays
+        std::vector<int> available_agvs = {1, 2, 3, 4}; // Available AGVs
 
         struct BinQuadrant {
             int part_type_clr = -1;
             geometry_msgs::msg::Pose part_pose;
         };
 
-        std::vector<int> conveyor_parts;
+        std::vector<int> conveyor_parts;   // Vector of parts on the conveyor
         std::map<int, BinQuadrant> bin_map;    // Holds part information in 72 possible bin locations (8 bins x 9 locations)
 
-
+        /**
+        * @brief Construct a new Ariac Competition object
+        * 
+        * @param node_name Name of the node
+        */
         AriacCompetition(std::string);
         
 
+        ////////////////////////////////////////
+        //         Competition Methods
+        ////////////////////////////////////////
+        /**
+        * @brief Callback function for competition state subscriber and to start competition
+        * 
+        * @param msg CompetitionState message 
+        */
         void competition_state_cb(
             const ariac_msgs::msg::CompetitionState::ConstSharedPtr);
 
+        /**
+        * @brief Callback function to end the competition
+        * 
+        */
         void end_competition_timer_callback();
 
+        /**
+        * @brief Callback function to store the orders
+        * 
+        * @param msg Order
+        */
         void order_callback(const ariac_msgs::msg::Order::SharedPtr);
 
-        // void bin_parts_callback(const ariac_msgs::msg::BinParts::SharedPtr);
-
+        /**
+        * @brief  Callback function to retrieve conveyor part information
+        * 
+        * @param msg 
+        */
         void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr);
 
+        /**
+        * @brief Method to process the order
+        * 
+        */
         bool process_order();
+
+        /**
+        * @brief Method to submit the orders
+        * 
+        * @param order_id Order ID
+        */
         void submit_order(std::string order_id);
+
+        /**
+        * @brief Method to do the kitting task
+        * 
+        */
         bool do_kitting(std::vector<Orders>);
+
+        /**
+        * @brief Method to perform the assembly task
+        * 
+        */
         void do_assembly(std::vector<Orders>);
+
+        /**
+        * @brief Method to carry out the combined task
+        * 
+        */
         void do_combined(std::vector<Orders>);
+
+        /**
+        * @brief Method to search the bin for the part
+        * 
+        * @return int 
+        */
         int search_bin(int);
+
+        /**
+        * @brief Method to check if the conveyor has the part
+        * 
+        * @return int 
+        */
         int search_conveyor(int);
+
+        /**
+        * @brief Set the up map object to store the bin part information
+        * 
+        */
         void setup_map();
 
+        /**
+         * @brief Method to populate the bin_map using RGB image information
+         * 
+         */
+        void populate_bin_part();
+
+        ////////////////////////////////////////
+        //        Type Conversion Methods
+        ////////////////////////////////////////
+        /**
+        * @brief Method to convert the part type to string
+        * 
+        * @param int Part type from ariac_msgs::msg:Part
+        * @return std::string Part type as string
+        */
         std::string ConvertPartTypeToString(int);
+
+        /**
+        * @brief Method to convert the part color to string
+        * 
+        * @param int Part color from ariac_msgs::msg:Part
+        * @return std::string Part color as string
+        */
         std::string ConvertPartColorToString(int);
+
+        /**
+        * @brief Method to convert the destination to string
+        * 
+        * @param int Destination from ariac_msgs
+        * @return std::string Destination as string
+        */
         std::string ConvertDestinationToString(int, int);
+
+        /**
+        * @brief Method to convert the assembly station to string
+        * 
+        * @param int Assembly station from ariac_msgs
+        * @return std::string Assembly station as string
+        */
         std::string ConvertAssemblyStationToString(int);
 
+        ////////////////////////////////////////
+        //           AGV Methods
+        ////////////////////////////////////////
+        /**
+        * @brief Method to lock the AGV
+        * 
+        * @param int AGV number
+        */
         void lock_agv(int);
+
+        /**
+        * @brief Method to unlock the AGV
+        * 
+        * @param int AGV number
+        */
         void unlock_agv(int);
+
+        /**
+        * @brief Method to move the AGV
+        * 
+        * @param int  AGV number
+        * @param std::string AGV Destination
+        *
+        */
         void move_agv(int, int);
+
+        /**
+        * @brief Method to choose the AGV for Combined task
+        * 
+        * @param int Station number
+        */
         int determine_agv(int);
 
+        ////////////////////////////////////////
+        //         Floor Robot Methods
+        ////////////////////////////////////////
+
+        /**
+         * @brief Method to move the Floor Robot Home
+         * 
+         */
         void FloorRobotMoveHome();
+
+        /**
+         * @brief Method to move the Floor Robot near the conveyor belt
+         * 
+         */
         void FloorRobotMoveConveyorHome();
+
+        /**
+         * @brief Method to set the Floor Robot's gripper state
+         * 
+         * @param enable Gripper state
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotSetGripperState(bool enable);
+
+        /**
+         * @brief Method to change the Floor Robot's gripper
+         * 
+         * @param gripper_type Gripper Type (parts/tray)
+         * @param station Station number
+         */
         void FloorRobotChangeGripper(std::string gripper_type, std::string station);
+        
+        /**
+         * @brief Method to make the Floor Robot pick and place the tray on the AGV.
+         * 
+         * @param tray_idx Tray number
+         * @param agv_num AGV number
+         */
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
+        
+        /**
+         * @brief Method to make the Floor Robot pick the part from the bin
+         * 
+         * @param part_clr Color of the part
+         * @param part_type Type of the part
+         * @param part_pose Desired pose of the part
+         * @param part_quad Quadrant in bin (1-72) 
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
+        
+        /**
+         * @brief Method to make the Floor Robot pick part from the Conveyor.
+         * 
+         * @param part_pose Pose of the part
+         * @param part_rgb Part to pick
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part part_rgb);
+        
+        /**
+         * @brief Method to make the Floor Robot place part on the Kit tray
+         * 
+         * @param agv_num AGV number
+         * @param quadrant Tray quadrant
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
+        ////////////////////////////////////////
+        //       Ceiling Robot Methods
+        ////////////////////////////////////////
+
+        /**
+         * @brief Method to move the Ceiling Robot Home
+         * 
+         */
         void CeilRobotMoveHome();
+
+        /**
+         * @brief Method to set the Ceiling Robot's gripper state
+         * 
+         * @param enable Gripper state
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotSetGripperState(bool enable);
+
+        /**
+         * @brief Method to change the Ceiling Robot's gripper
+         * 
+         * @param gripper_type Gripper Type (parts/tray)
+         * @param station Station number
+         */
         void CeilRobotChangeGripper(std::string gripper_type, std::string station);
+        
+        /**
+         * @brief Method to make the Ceiling Robot pick the part from the bin
+         * 
+         * @param part_clr Color of the part
+         * @param part_type Type of the part
+         * @param part_pose Desired pose of the part
+         * @param part_quad Quadrant in bin (1-72) 
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
+        
+        /**
+         * @brief Method to make the Ceiling Robot place part on the Kit tray
+         * 
+         * @param agv_num AGV number
+         * @param quadrant Tray quadrant
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotPlacePartOnKitTray(int agv_num, int quadrant);
+
+        /**
+         * @brief Method to make the Ceiling Robot fine-tune the assembly of the part.
+         * 
+         * @param station Assembly station number 
+         * @param part Part to be assembled
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotWaitForAssemble(int station, Part part);
+        
+        /**
+         * @brief Method to make the Ceiling Robot move to the desired Assembly station
+         * 
+         * @param station Assembly Station number
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotMoveToAssemblyStation(int station);
+        
+        /**
+         * @brief Method to make the Ceiling Robot pick from the AGV
+         * 
+         * @param part Part to be picked (type and pose) 
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotPickAGVPart(ariac_msgs::msg::PartPose part);
+        
+        /**
+         * @brief Method to make the Ceiling Robot place part in the assembly station.
+         * 
+         * @param station Assmebly Station number 
+         * @param part Part to be assembled
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotAssemblePart(int station, Part part);
 
-        void populate_bin_part();
+        ////////////////////////////////////////
+        //           Challenges Methods
+        ////////////////////////////////////////
+
+        /**
+         * @brief Method to detect if the part on the tray is faulty.
+         * 
+         * @param order_id Order ID
+         * @return std::vector<bool> 
+         * @attention The perform_quality_check service has some bugs and needs to be called twice for it to work. 
+         */
         std::vector<bool> CheckFaultyPart(std::string order_id);
-        void DisposePart(int agv_num, int quadrant);
+        
+        /**
+         * @brief Method to flip a part using the Floor and Ceiling Robots.
+         * 
+         * @param part_clr Part color
+         * @param part_type Part type
+         * @param agv_num AGV number
+         * @param part_quad Bin quadrant of the part (1-72)
+         */
         void FlipPart(int part_clr, int part_type, int agv_num, int part_quad);
 
     private:
 
+        ////////////////////////////////////////
+        //     Floor Robot MoveIt Methods
+        ////////////////////////////////////////
+        /**
+         * @brief Method to generate and execute the plan for the Floor Robot
+         * 
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotMovetoTarget();
+
+        /**
+         * @brief Method to generate a Time optimal trajectory for the Floor Robot
+         * 
+         * @param waypoints Waypoints of the robot
+         * @param vsf Velocity Scaling Factor
+         * @param asf Acceleration Scaling Factor
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf);
+        
+        /**
+         * @brief Method to make fine-adjustments to the Floor Robot while attaching to a part
+         * 
+         * @param timeout Time to perform adjustments
+         */
         void FloorRobotWaitForAttach(double timeout);
+
+        /**
+         * @brief Method to determine if the quadrant is within the Floor Robot's reachable workspace
+         * 
+         * @param quadrant 
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotReachableWorkspace(int quadrant);
 
+        ////////////////////////////////////////
+        //     Ceiling Robot MoveIt Methods
+        ////////////////////////////////////////
+
+        /**
+         * @brief Method to generate and execute the plan for the Ceiling Robot
+         * 
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotMovetoTarget();
+
+        /**
+         * @brief Method to generate a Time optimal trajectory for the Ceiling Robot
+         * 
+         * @param waypoints Waypoints of the robot
+         * @param vsf Velocity Scaling Factor
+         * @param asf Acceleration Scaling Factor
+         * @return true 
+         * @return false 
+         */
         bool CeilRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf, bool avoid_collisions);
+        
+        /**
+         * @brief Method to make fine-adjustments to the Ceiling Robot while attaching to a part
+         * 
+         * @param timeout Time to perform adjustments
+         */
         void CeilRobotWaitForAttach(double timeout);
 
-        geometry_msgs::msg::Quaternion SetRobotOrientation(double rotation);
+        ////////////////////////////////////////
+        //     Kinematics based Methods
+        ////////////////////////////////////////
 
+        /**
+         * @brief Method to set the robot's yaw orientation
+         * 
+         * @param rotation Yaw angle
+         * @return geometry_msgs::msg::Quaternion 
+         */
+        geometry_msgs::msg::Quaternion SetRobotOrientation(double rotation);
+        
+        /**
+         * @brief Method to print the pose 
+         * 
+         * @param p Pose
+         */
         void LogPose(geometry_msgs::msg::Pose p);
+
+        /**
+         * @brief Method to perform coordinate frame multiplication
+         * 
+         * @param p1 Pose #1
+         * @param p2 Pose #2
+         * @return geometry_msgs::msg::Pose 
+         */
         geometry_msgs::msg::Pose MultiplyPose(geometry_msgs::msg::Pose p1, geometry_msgs::msg::Pose p2);
+        
+        /**
+         * @brief Method to build a geometry_msg/Pose object given individual pose information
+         * 
+         * @param x X coordinate of pose
+         * @param y Y coordinate of pose
+         * @param z Z coordinate of pose
+         * @param orientation Quaternion of pose 
+         * @return geometry_msgs::msg::Pose 
+         */
         geometry_msgs::msg::Pose BuildPose(double x, double y, double z, geometry_msgs::msg::Quaternion orientation);
+        
+        /**
+         * @brief  Method to retrieve the tf2 pose information of the frame
+         * 
+         * @param frame_id tf2 Frame ID
+         * @return geometry_msgs::msg::Pose 
+         */
         geometry_msgs::msg::Pose FrameWorldPose(std::string frame_id);
+        
+        /**
+         * @brief  Method to extract the yaw angle from a pose.
+         * 
+         * @param pose Pose
+         * @return double 
+         */
         double GetYaw(geometry_msgs::msg::Pose pose);
+        
+        /**
+         * @brief Method to convert RPY angles to Quaternion
+         * 
+         * @param r Roll angle 
+         * @param p Pitch angle
+         * @param y Yaw angle
+         * @return geometry_msgs::msg::Quaternion 
+         */
         geometry_msgs::msg::Quaternion QuaternionFromRPY(double r, double p, double y);
 
+        /**
+         * @brief Method to add the model STL into RViz Planning Scene
+         * 
+         * @param name Model name
+         * @param mesh_file Path to STL file of model
+         * @param model_pose Model pose
+         */
         void AddModelToPlanningScene(std::string name, std::string mesh_file, geometry_msgs::msg::Pose model_pose);
+        
+        /**
+         * @brief Method to add competition models to RViz Planning Scene
+         * 
+         */
         void AddModelsToPlanningScene();
         
-        rclcpp::Node::SharedPtr floor_robot_node_;
-        rclcpp::Node::SharedPtr ceil_robot_node_;
-        rclcpp::Executor::SharedPtr executor_;
-        std::thread executor_thread_;
+        rclcpp::Node::SharedPtr floor_robot_node_;  // Floor Robot's Node object pointer
+        rclcpp::Node::SharedPtr ceil_robot_node_;   // Ceiling Robot's Node object pointer
+        rclcpp::Executor::SharedPtr executor_;      // Executor object for Floor & Ceiling Robot nodes
+        std::thread executor_thread_;               // Thread for executor_ object 
 
         std::map<int, ariac_msgs::msg::AssemblyState> assembly_station_states_;
 
@@ -269,27 +679,33 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr floor_gripper_state_sub_;
         rclcpp::Subscription<ariac_msgs::msg::VacuumGripperState>::SharedPtr ceil_gripper_state_sub_;
 
+        // RGB Camera subscriptions
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts1_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr kts2_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr left_bins_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr right_bins_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr conv_rgb_camera_sub_;
 
+        // Conveyor Basic logical camera subscription
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr conv_camera_sub_;
 
+        // Breakbeam subscriptions
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam1_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam2_sub_;
 
+        // OpenCV detection subscriptions
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr right_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr left_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Part>::SharedPtr conv_part_detector_sub_;
 
+        // Assembly State subscriptions
         rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as1_state_sub_;
         rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as2_state_sub_;
         rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as3_state_sub_;
         rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as4_state_sub_;
 
+        // Break Beam variables
         bool breakbeam_status;
         bool breakbeam_trigger;
         bool breakbeam1_status;
@@ -341,7 +757,7 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Client<ariac_msgs::srv::ChangeGripper>::SharedPtr ceil_robot_tool_changer_;
         rclcpp::Client<ariac_msgs::srv::VacuumGripperControl>::SharedPtr ceil_robot_gripper_enable_;
 
-        // Sensor Callbacks
+        // Sensor Flags
         bool conv_camera_received_data = false;
         bool breakbeam_received_data = false;
         bool breakbeam1_received_data = false;
@@ -356,6 +772,7 @@ class AriacCompetition : public rclcpp::Node {
         bool left_part_detector_received_data = false;
         bool conv_part_detector_received_data = false; 
 
+        // Sensor Callbacks
         void conv_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
 
         void breakbeam_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
@@ -474,6 +891,7 @@ class AriacCompetition : public rclcpp::Node {
             {"ceiling_wrist_2_joint", -1.57},
             {"ceiling_wrist_3_joint", 0.0}};
 
+        // Joint value targets for Conveyor
         std::map<std::string, double> conv_js_ = {
             {"linear_actuator_joint", 0},
             {"floor_shoulder_pan_joint", 3.14},
@@ -505,7 +923,7 @@ class AriacCompetition : public rclcpp::Node {
             {"ceiling_wrist_2_joint", 1.57},
             {"ceiling_wrist_3_joint", 1.57}};
 
-        // Joint value targets for disposal Bin
+        // Joint value targets for Disposal Bins
         std::map<int, std::map<std::string, double>> floor_disposal_poses_ = {
             {4 , std::map<std::string, double>{
                 {"linear_actuator_joint", 4.8},
@@ -588,6 +1006,7 @@ class AriacCompetition : public rclcpp::Node {
                 {"ceiling_wrist_3_joint", 1.68}}}
         };
 
+        // Joint value targets for Assembly stations
         std::map<std::string, double> ceiling_as1_js_ = {
             {"gantry_x_axis_joint", 1},
             {"gantry_y_axis_joint", -3},
@@ -636,6 +1055,7 @@ class AriacCompetition : public rclcpp::Node {
             {"ceiling_wrist_3_joint", 0}
         };
 
+        // Joint value targets for flipping parts
         std::map<std::string, double> ceil_flip_part_js_ = {
             {"gantry_x_axis_joint", 2.971},
             {"gantry_y_axis_joint", 0.359},
