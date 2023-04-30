@@ -590,6 +590,22 @@ void AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     count++;
   }
 
+  auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
+  usleep(2000);
+  QualityCheck = CheckFaultyPart(current_order[0].GetId());
+  if(!QualityCheck[1]){
+    populate_bin_part();
+    for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
+      if(QualityCheck[4+(j*6)]){
+        type_color_key = search_bin(current_order[0].GetKitting().get()->GetParts()[j][1]*10+current_order[0].GetKitting().get()->GetParts()[j][0]);
+        RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Missing Part " << ConvertPartColorToString((bin_map[type_color_key].part_type_clr)%10) << " " << ConvertPartTypeToString((bin_map[type_color_key].part_type_clr)/10));
+        FloorRobotPickBinPart((bin_map[type_color_key].part_type_clr)%10,(bin_map[type_color_key].part_type_clr)/10, bin_map[type_color_key].part_pose, type_color_key);
+        FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[j][2]);
+      }
+    }
+  }
+  
+
   int used_agv = current_order[0].GetKitting().get()->GetAgvId();
   if (available_agvs.size() > 0) {
     available_agvs.erase(std::remove(available_agvs.begin(), available_agvs.end(), used_agv), available_agvs.end());
@@ -1643,9 +1659,9 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
 
   FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
 
-  auto QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
   usleep(2500);
-  QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  QualityCheck = CheckFaultyPart(current_order[0].GetId());
 
   if(QualityCheck[6] || QualityCheck[12] || QualityCheck[18] || QualityCheck[24]){
     floor_robot_->setJointValueTarget(floor_disposal_poses_[agv_num]);
@@ -1834,7 +1850,7 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
 
 }
 
-std::vector<bool> AriacCompetition::CheckFaultyPart(std::string order_id, int quadrant_){
+std::vector<bool> AriacCompetition::CheckFaultyPart(std::string order_id){
 
   std::string srv_name = "/ariac/perform_quality_check";
 
@@ -2258,9 +2274,9 @@ bool AriacCompetition::CeilRobotPlacePartOnKitTray(int agv_num, int quadrant) {
 
   CeilRobotMoveCartesian(waypoints, 0.1, 0.1);
 
-  auto QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
   usleep(2500);
-  QualityCheck = CheckFaultyPart(current_order[0].GetId(), quadrant);
+  QualityCheck = CheckFaultyPart(current_order[0].GetId());
 
   if(QualityCheck[6] || QualityCheck[12] || QualityCheck[18] || QualityCheck[24]){
     ceil_robot_->setJointValueTarget(ceil_disposal_poses_[agv_num]);
