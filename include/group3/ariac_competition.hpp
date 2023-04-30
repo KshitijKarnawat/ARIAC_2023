@@ -259,6 +259,7 @@ class AriacCompetition : public rclcpp::Node {
 
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam1_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam2_sub_;
 
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr right_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr left_part_detector_sub_;
@@ -267,6 +268,7 @@ class AriacCompetition : public rclcpp::Node {
         bool breakbeam_status;
         bool breakbeam_trigger;
         bool breakbeam1_status;
+        bool breakbeam2_status;
         float breakbeam_time_sec;
         bool wait_flag = false;
         
@@ -311,6 +313,7 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<group3::msg::Part> left_parts_;
         std::vector<ariac_msgs::msg::Part> dropped_parts_;
         std::vector<geometry_msgs::msg::Pose> conv_parts_;
+        group3::msg::Part pump_rgb;
 
         group3::msg::Part conv_rgb_parts_;
 
@@ -329,6 +332,7 @@ class AriacCompetition : public rclcpp::Node {
         bool conv_camera_received_data = false;
         bool breakbeam_received_data = false;
         bool breakbeam1_received_data = false;
+        bool breakbeam2_received_data = false;
 
         bool kts1_rgb_camera_received_data = false;
         bool kts2_rgb_camera_received_data = false;
@@ -347,6 +351,7 @@ class AriacCompetition : public rclcpp::Node {
 
         void breakbeam_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
         void breakbeam1_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
+        void breakbeam2_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
 
         void kts1_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
         void kts2_rgb_camera_cb(const sensor_msgs::msg::Image::ConstSharedPtr msg);
@@ -466,7 +471,6 @@ class AriacCompetition : public rclcpp::Node {
             {"floor_gripper_joint",0}};
 
         std::map<std::string, double> floor_conv_home_js_ = {
-            // {"linear_actuator_joint", -2.85},
             {"linear_actuator_joint", -2.75},
             {"floor_shoulder_pan_joint", 3.14},
             {"floor_shoulder_lift_joint", -0.9162979},
