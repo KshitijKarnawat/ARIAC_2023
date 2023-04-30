@@ -43,6 +43,8 @@
 #include <ariac_msgs/msg/assembly_part.hpp>
 #include <ariac_msgs/msg/assembly_task.hpp>
 #include <ariac_msgs/msg/combined_task.hpp>
+#include <ariac_msgs/msg/assembly_state.hpp>
+#include <ariac_msgs/msg/assembly_station_state.hpp>
 #include <ariac_msgs/msg/competition_state.hpp>
 #include <ariac_msgs/msg/kitting_part.hpp>
 #include <ariac_msgs/msg/kitting_task.hpp>
@@ -108,6 +110,18 @@
 #include "map_poses.hpp"
 
 class Orders;
+
+/**
+ * @brief Struct of type Part used in Assembly and Combined Order
+ * 
+ */
+struct Part {
+      int type;
+      int color;
+      geometry_msgs::msg::PoseStamped assembled_pose;
+      geometry_msgs::msg::Vector3 install_direction;
+};
+
 
 /**
  * @brief Class definition for ARIAC Competition
@@ -179,7 +193,6 @@ class AriacCompetition : public rclcpp::Node {
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
         bool FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
         bool FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part part_rgb);
-        bool FloorRobotCorrectConveyor(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part part_rgb);
         bool FloorRobotPlacePartOnKitTray(int agv_num, int quadrant);
 
         void CeilRobotMoveHome();
@@ -187,6 +200,10 @@ class AriacCompetition : public rclcpp::Node {
         void CeilRobotChangeGripper(std::string gripper_type, std::string station);
         bool CeilRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad);
         bool CeilRobotPlacePartOnKitTray(int agv_num, int quadrant);
+        bool CeilRobotWaitForAssemble(int station, Part part);
+        bool CeilRobotMoveToAssemblyStation(int station);
+        bool CeilRobotPickAGVPart(ariac_msgs::msg::PartPose part);
+        bool CeilRobotAssemblePart(int station, Part part);
 
         void populate_bin_part();
         std::vector<bool> CheckFaultyPart(std::string order_id);
@@ -201,7 +218,7 @@ class AriacCompetition : public rclcpp::Node {
         bool FloorRobotReachableWorkspace(int quadrant);
 
         bool CeilRobotMovetoTarget();
-        bool CeilRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf);
+        bool CeilRobotMoveCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf, bool avoid_collisions);
         void CeilRobotWaitForAttach(double timeout);
 
         geometry_msgs::msg::Quaternion SetRobotOrientation(double rotation);
@@ -220,6 +237,8 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Node::SharedPtr ceil_robot_node_;
         rclcpp::Executor::SharedPtr executor_;
         std::thread executor_thread_;
+
+        std::map<int, ariac_msgs::msg::AssemblyState> assembly_station_states_;
 
         // MoveIt Interfaces 
         moveit::planning_interface::MoveGroupInterfacePtr floor_robot_;
@@ -251,10 +270,6 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr right_bins_rgb_camera_sub_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr conv_rgb_camera_sub_;
 
-        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts1_camera_sub_;
-        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr kts2_camera_sub_;
-        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr left_bins_camera_sub_;
-        rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr right_bins_camera_sub_;
         rclcpp::Subscription<ariac_msgs::msg::BasicLogicalCameraImage>::SharedPtr conv_camera_sub_;
 
         rclcpp::Subscription<ariac_msgs::msg::BreakBeamStatus>::SharedPtr breakbeam_sub_;
@@ -264,6 +279,11 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr right_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Parts>::SharedPtr left_part_detector_sub_;
         rclcpp::Subscription<group3::msg::Part>::SharedPtr conv_part_detector_sub_;
+
+        rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as1_state_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as2_state_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as3_state_sub_;
+        rclcpp::Subscription<ariac_msgs::msg::AssemblyState>::SharedPtr as4_state_sub_;
 
         bool breakbeam_status;
         bool breakbeam_trigger;
@@ -280,16 +300,7 @@ class AriacCompetition : public rclcpp::Node {
         cv::Mat conv_rgb_camera_image_;
 
         // Sensor poses
-        geometry_msgs::msg::Pose kts1_camera_pose_;
-        geometry_msgs::msg::Pose kts2_camera_pose_;
-        geometry_msgs::msg::Pose left_bins_camera_pose_;
-        geometry_msgs::msg::Pose right_bins_camera_pose_;
         geometry_msgs::msg::Pose conv_camera_pose_;
-        std::vector<geometry_msgs::msg::Pose> conv_correction;
-
-        // Trays
-        std::vector<geometry_msgs::msg::Pose> kts1_trays_;
-        std::vector<geometry_msgs::msg::Pose> kts2_trays_;
 
         // Bins
         std::vector<geometry_msgs::msg::Pose> left_bins_parts_;
@@ -325,10 +336,6 @@ class AriacCompetition : public rclcpp::Node {
         rclcpp::Client<ariac_msgs::srv::VacuumGripperControl>::SharedPtr ceil_robot_gripper_enable_;
 
         // Sensor Callbacks
-        bool kts1_camera_received_data = false;
-        bool kts2_camera_received_data = false;
-        bool left_bins_camera_received_data = false;
-        bool right_bins_camera_received_data = false;
         bool conv_camera_received_data = false;
         bool breakbeam_received_data = false;
         bool breakbeam1_received_data = false;
@@ -343,10 +350,6 @@ class AriacCompetition : public rclcpp::Node {
         bool left_part_detector_received_data = false;
         bool conv_part_detector_received_data = false; 
 
-        void kts1_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
-        void kts2_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
-        void left_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
-        void right_bins_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
         void conv_camera_cb(const ariac_msgs::msg::BasicLogicalCameraImage::ConstSharedPtr msg);
 
         void breakbeam_cb(const ariac_msgs::msg::BreakBeamStatus::ConstSharedPtr msg);
@@ -363,7 +366,12 @@ class AriacCompetition : public rclcpp::Node {
         
         void right_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
         void left_part_detector_cb(const group3::msg::Parts::ConstSharedPtr msg);
-        void conv_part_detector_cb(const group3::msg::Part::ConstSharedPtr msg); //
+        void conv_part_detector_cb(const group3::msg::Part::ConstSharedPtr msg);
+
+        void as1_state_cb(const ariac_msgs::msg::AssemblyState::ConstSharedPtr msg);
+        void as2_state_cb(const ariac_msgs::msg::AssemblyState::ConstSharedPtr msg);
+        void as3_state_cb(const ariac_msgs::msg::AssemblyState::ConstSharedPtr msg);
+        void as4_state_cb(const ariac_msgs::msg::AssemblyState::ConstSharedPtr msg);
 
         // Constants
         double kit_tray_thickness_ = 0.011;
@@ -574,16 +582,53 @@ class AriacCompetition : public rclcpp::Node {
                 {"ceiling_wrist_3_joint", 1.68}}}
         };
 
-        // std::map<std::string, double> ceil_flip_part_js_ = {
-        //     {"gantry_x_axis_joint", 2.892},
-        //     {"gantry_y_axis_joint", 0.373},
-        //     {"gantry_rotation_joint", -1.57}, // -89 deg
-        //     {"ceiling_shoulder_pan_joint", 0.069},  // 4 deg
-        //     {"ceiling_shoulder_lift_joint", -0.872},  // -50 deg
-        //     {"ceiling_elbow_joint", -0.994},  // -57 deg
-        //     {"ceiling_wrist_1_joint", 3.42}, // 196 deg
-        //     {"ceiling_wrist_2_joint", -1.57},  // -90 deg
-        //     {"ceiling_wrist_3_joint", -0.0523}};  // -3 deg
+        std::map<std::string, double> ceiling_as1_js_ = {
+            {"gantry_x_axis_joint", 1},
+            {"gantry_y_axis_joint", -3},
+            {"gantry_rotation_joint", 1.571},
+            {"ceiling_shoulder_pan_joint", 0},
+            {"ceiling_shoulder_lift_joint", -2.37},
+            {"ceiling_elbow_joint", 2.37},
+            {"ceiling_wrist_1_joint", 3.14},
+            {"ceiling_wrist_2_joint", -1.57},
+            {"ceiling_wrist_3_joint", 0}
+        };
+
+        std::map<std::string, double> ceiling_as2_js_ = {
+            {"gantry_x_axis_joint", -4},
+            {"gantry_y_axis_joint", -3},
+            {"gantry_rotation_joint", 1.571},
+            {"ceiling_shoulder_pan_joint", 0},
+            {"ceiling_shoulder_lift_joint", -2.37},
+            {"ceiling_elbow_joint", 2.37},
+            {"ceiling_wrist_1_joint", 3.14},
+            {"ceiling_wrist_2_joint", -1.57},
+            {"ceiling_wrist_3_joint", 0}
+        };
+
+        std::map<std::string, double> ceiling_as3_js_ = {
+            {"gantry_x_axis_joint", 1},
+            {"gantry_y_axis_joint", 3},
+            {"gantry_rotation_joint", 1.571},
+            {"ceiling_shoulder_pan_joint", 0},
+            {"ceiling_shoulder_lift_joint", -2.37},
+            {"ceiling_elbow_joint", 2.37},
+            {"ceiling_wrist_1_joint", 3.14},
+            {"ceiling_wrist_2_joint", -1.57},
+            {"ceiling_wrist_3_joint", 0}
+        };
+
+        std::map<std::string, double> ceiling_as4_js_ = {
+            {"gantry_x_axis_joint", -4},
+            {"gantry_y_axis_joint", 3},
+            {"gantry_rotation_joint", 1.571},
+            {"ceiling_shoulder_pan_joint", 0},
+            {"ceiling_shoulder_lift_joint", -2.37},
+            {"ceiling_elbow_joint", 2.37},
+            {"ceiling_wrist_1_joint", 3.14},
+            {"ceiling_wrist_2_joint", -1.57},
+            {"ceiling_wrist_3_joint", 0}
+        };
 
         std::map<std::string, double> ceil_flip_part_js_ = {
             {"gantry_x_axis_joint", 2.971},
@@ -673,17 +718,6 @@ class Kitting {
         unsigned int tray_id_;
         unsigned int destination_;
         std::vector<std::array<int, 3>> parts_kit_;
-};
-
-/**
- * @brief Struct of type Part used in Assembly and Combined Order
- * 
- */
-struct Part {
-      int type;
-      int color;
-      geometry_msgs::msg::PoseStamped assembled_pose;
-      geometry_msgs::msg::Vector3 install_direction;
 };
 
 /**
