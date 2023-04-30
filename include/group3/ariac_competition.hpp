@@ -135,6 +135,11 @@ class AriacCompetition : public rclcpp::Node {
         int competition_state_ = -1;
         bool competition_started_{false};
         int conveyor_size;
+        bool high_priority_order_{false};
+        bool doing_incomplete = false;
+        int kittingorder_count_ = 0;
+        int kittingorder_count_incomplete_ = 0;
+
 
         std::vector<Orders> orders;
         std::vector<Orders> incomplete_orders;
@@ -167,9 +172,9 @@ class AriacCompetition : public rclcpp::Node {
 
         void conveyor_parts_callback(const ariac_msgs::msg::ConveyorParts::SharedPtr);
 
-        void process_order();
+        bool process_order();
         void submit_order(std::string order_id);
-        void do_kitting(std::vector<Orders>);
+        bool do_kitting(std::vector<Orders>);
         void do_assembly(std::vector<Orders>);
         void do_combined(std::vector<Orders>);
         int search_bin(int);
@@ -310,6 +315,7 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<int> occupied_quadrants;
 
         // Callback Groups
+        rclcpp::CallbackGroup::SharedPtr order_cb_group_;
         rclcpp::CallbackGroup::SharedPtr topic_cb_group_;
         rclcpp::CallbackGroup::SharedPtr topic_cb_group2_;
 
