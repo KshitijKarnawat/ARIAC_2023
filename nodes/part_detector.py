@@ -194,15 +194,10 @@ class ImageSubscriber(Node):
     # Display image
     img = current_frame
 
-    img_bin_tr = img[28:223, 360:550]
-    img_bin_tl = img[28:223, 118:309]
-    img_bin_br = img[267:458, 360:550]
-    img_bin_bl = img[267:458, 118:309]
-    #old values to verify
-    # img_bin_tr = img[28:223, 333:530]
-    # img_bin_tl = img[28:223, 92:285]
-    # img_bin_br = img[267:458, 333:530]
-    # img_bin_bl = img[267:458, 92:285]
+    img_bin_tr = img[28:220, 332:522]
+    img_bin_tl = img[28:220, 90:283]
+    img_bin_br = img[267:458, 332:522]
+    img_bin_bl = img[267:458, 90:283]
 
     image = [img_bin_bl, img_bin_br, img_bin_tr, img_bin_tl]
     i = 0
@@ -439,39 +434,39 @@ class ImageSubscriber(Node):
     return 0
 
   def rightbin_detect_quadrant(self,x_m, y_m, i):
-    if 0< x_m <70 and 0 < y_m < 65:
+    if 0< x_m <64 and 0 < y_m < 64:
       q = 9*i + 1
       # self.get_logger().info("Quadrant is ""%i" %q)
 
-    elif 71< x_m <135 and 0 < y_m < 65:
+    elif 65< x_m <128 and 0 < y_m < 64:
       q = 9*i + 2
       # self.get_logger().info("Quadrant is ""%i" %q)
 
-    elif 137< x_m <195 and 0 < y_m < 65:
+    elif 130< x_m <195 and 0 < y_m < 64:
       q = 9*i + 3
       # self.get_logger().info("Quadrant is ""%i" %q)
 
-    elif 0< x_m <70 and 69 < y_m < 126:
+    elif 0< x_m <64 and 66 < y_m < 129:
       q = 9*i + 4
       # self.get_logger().info("Quadrant is ""%i" %q)
 
-    elif 71< x_m <135 and 69 < y_m < 126:
+    elif 65< x_m <128 and 66 < y_m < 129:
       q = 9*i + 5
       # self.get_logger().info("Quadrant is ""%i" %q)
 
-    elif 137< x_m <195 and 69 < y_m < 126:
+    elif 130< x_m <195 and 66 < y_m < 129:
       q = 9*i + 6
       # self.get_logger().info("Quadrant is ""%i" %q)
     
-    elif 0< x_m <70 and 130 < y_m < 192:
+    elif 0< x_m <64 and 131 < y_m < 194:
       q = 9*i + 7
       # self.get_logger().info("Quadrant is ""%i" %q)
 
-    elif 71< x_m <135 and 130 < y_m < 192:
+    elif 65< x_m <128 and 131 < y_m < 194:
       q = 9*i + 8
       # self.get_logger().info("Quadrant is ""%i" %q)
     
-    elif 137< x_m <195 and 130 < y_m < 192:
+    elif 130< x_m <195 and 131 < y_m < 194:
       q = 9*i + 9
       # self.get_logger().info("Quadrant is ""%i" %q)
     
