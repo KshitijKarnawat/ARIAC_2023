@@ -19,7 +19,7 @@ The course will focus on the development of a simulation-based control system th
 - [ARIAC 2023 Workspace](https://github.com/usnistgov/ARIAC)
 - [Ubuntu 20.04 LTS](https://releases.ubuntu.com/focal/)
 - [OpenCV](https://www.opencv-srf.com/p/introduction.html): Requires both Python and C++ versions. C++ version can be installed from [link](https://www.geeksforgeeks.org/how-to-install-opencv-in-c-on-linux/). You will also need opencv-contrib for the ArucoDetector functionality. 
-- cv_bridge: Can be installed using - ```sudo apt-get install ros-galactic-cv-bridge```
+- [cv_bridge](https://index.ros.org/p/cv_bridge/): Can be installed using - ```sudo apt-get install ros-galactic-cv-bridge```
 ## Build Package
 
 ```sh
