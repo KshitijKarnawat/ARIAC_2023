@@ -462,6 +462,26 @@ bool AriacCompetition::process_order() {
               return true;
             }
           }
+          else if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::COMBINED)) {
+            current_order.erase(current_order.begin());
+            current_order.push_back(incomplete_orders.at(0));
+            incomplete_orders.erase(incomplete_orders.begin());
+            doing_incomplete = true;
+            completed_order = do_combined(current_order);
+            if (!completed_order) {
+              combinedorder_count_incomplete_ = combinedorder_count_;
+              combinedorder_count_ = 0;
+              incomplete_orders.push_back(current_order.at(0));
+              current_order.erase(current_order.begin());
+              return false;
+            }
+            else {
+              submit_order(current_order[0].GetId().c_str());
+              current_order.erase(current_order.begin());
+              doing_incomplete = false;
+              return true;
+            }
+          }
           else {
             return true;
           }
@@ -477,7 +497,73 @@ bool AriacCompetition::process_order() {
     do_assembly(current_order);
   }
   else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
-    do_combined(current_order);
+    // do_combined(current_order);
+    if (current_order[0].IsPriority() == 1) {
+    //   doing_incomplete = true;
+          high_priority_order_ = false;
+    }
+    completed_order = do_combined(current_order);
+    if (!completed_order) {
+      combinedorder_count_incomplete_ = combinedorder_count_;
+      combinedorder_count_ = 0;
+      incomplete_orders.push_back(current_order.at(0));
+      current_order.erase(current_order.begin());
+      RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Pushed incomplete Orders \033[0m");
+      return false;
+    }
+    else {
+      submit_order(current_order[0].GetId().c_str());
+      if (current_order[0].IsPriority() == 1) {
+          if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::KITTING)) {
+            current_order.erase(current_order.begin());
+            current_order.push_back(incomplete_orders.at(0));
+            incomplete_orders.erase(incomplete_orders.begin());
+            doing_incomplete = true;
+            completed_order = do_kitting(current_order);
+            if (!completed_order) {
+              kittingorder_count_incomplete_ = kittingorder_count_;
+              kittingorder_count_ = 0;
+              incomplete_orders.push_back(current_order.at(0));
+              current_order.erase(current_order.begin());
+              return false;
+            }
+            else {
+              submit_order(current_order[0].GetId().c_str());
+              current_order.erase(current_order.begin());
+              doing_incomplete = false;
+              return true;
+            }
+          }
+          else if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::COMBINED)) {
+            current_order.erase(current_order.begin());
+            current_order.push_back(incomplete_orders.at(0));
+            incomplete_orders.erase(incomplete_orders.begin());
+            doing_incomplete = true;
+            completed_order = do_combined(current_order);
+            if (!completed_order) {
+              combinedorder_count_incomplete_ = combinedorder_count_;
+              combinedorder_count_ = 0;
+              incomplete_orders.push_back(current_order.at(0));
+              current_order.erase(current_order.begin());
+              return false;
+            }
+            else {
+              submit_order(current_order[0].GetId().c_str());
+              current_order.erase(current_order.begin());
+              doing_incomplete = false;
+              return true;
+            }
+          }
+          else {
+            return true;
+          }
+      }
+      else {
+        current_order.erase(current_order.begin());
+        return true;
+      }
+      
+    }
   }
 }
 
@@ -760,7 +846,7 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
   // ceil.SendHome();
 }
 
-void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
+bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
 
   populate_bin_part();
   int agv_num;
@@ -782,11 +868,7 @@ void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   std::string part_info;
 
   RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV " << agv_num << " and Tray ID " << tray_num);
-    
-  FloorRobotMoveHome();
-  CeilRobotMoveToAssemblyStation(station_num);
-  FloorRobotPickandPlaceTray(tray_num, agv_num);
-  
+  combinedorder_count_+=2; //PickandPlacetray
   int type_color_key;
   std::vector<std::array<int, 2>> keys;
   int type_color;
@@ -794,26 +876,64 @@ void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
     type_color = (current_order[0].GetCombined().get()->GetParts()[j].type*10 + current_order[0].GetCombined().get()->GetParts()[j].color);
     type_color_key = search_bin(type_color);
     if(type_color_key != -1){
+      combinedorder_count_+=1;
       keys.push_back({type_color_key, 1});
     }
   }
 
+  FloorRobotMoveHome();
+  CeilRobotMoveToAssemblyStation(station_num);
+  if (!high_priority_order_ && doing_incomplete == false) {
+    FloorRobotPickandPlaceTray(tray_num, agv_num);
+    combinedorder_count_ -= 1;
+  }
+  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ == combinedorder_count_ )) {
+    FloorRobotPickandPlaceTray(tray_num, agv_num);
+    combinedorder_count_ -= 1;
+    combinedorder_count_incomplete_ -= 1;
+  }
+  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ < combinedorder_count_ )) {
+    combinedorder_count_ -= 1;
+  }
+  else {
+    return false;
+  }
   int count = 0;
   std::array<int,4> quadrant = {1,2,3,4};
   for (auto i : keys){
     if (i[1] == 0) {
       continue;
     } else if (i[1] == 1) {
-      part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
-      if (FloorRobotReachableWorkspace(i[0])) {
+      if (!high_priority_order_ && doing_incomplete == false) {
+        part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+        if (FloorRobotReachableWorkspace(i[0])) {
         // CeilRobotMoveHome();
-        FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
-        FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
-      } else {
+          FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
+          FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+        } else {
         // FloorRobotMoveHome();
-        CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
-        CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+          CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
+          CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+        }
       }
+      else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ == combinedorder_count_ )) {
+        part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
+        if (FloorRobotReachableWorkspace(i[0])) {
+        // CeilRobotMoveHome();
+          FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
+          FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+        } else {
+        // FloorRobotMoveHome();
+          CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
+          CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+        }
+      }
+      else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ < combinedorder_count_ )) {
+        combinedorder_count_ -= 1;
+      }
+      else {
+        return false;
+      } 
     } 
     count++;
   }
@@ -864,6 +984,7 @@ void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   }
 
   for (auto const &part_to_assemble : current_order[0].GetCombined().get()->GetParts()) {
+  if (!high_priority_order_ && doing_incomplete == false) { 
     ariac_msgs::msg::PartPose part_to_pick;
     part_to_pick.part.type = part_to_assemble.type;
     part_to_pick.part.color = part_to_assemble.color;
@@ -873,15 +994,42 @@ void AriacCompetition::do_combined(std::vector<Orders>  current_order) {
         break;
       }
     }
-
     // Pick up part
     CeilRobotPickAGVPart(part_to_pick);
     
     CeilRobotAssemblePart(station_num, part_to_assemble);
 
     CeilRobotMoveToAssemblyStation(station_num);
+    combinedorder_count_ -=1;
+  }
+  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ == combinedorder_count_ )) {
+    ariac_msgs::msg::PartPose part_to_pick;
+    part_to_pick.part.type = part_to_assemble.type;
+    part_to_pick.part.color = part_to_assemble.color;
+    for (auto const &agv_part: agv_part_poses) {
+      if (agv_part.part.type == part_to_assemble.type && agv_part.part.color == part_to_assemble.color) {
+        part_to_pick.pose = agv_part.pose;
+        break;
+      }
+    }
+    // Pick up part
+    CeilRobotPickAGVPart(part_to_pick);
+    
+    CeilRobotAssemblePart(station_num, part_to_assemble);
+
+    CeilRobotMoveToAssemblyStation(station_num);
+    combinedorder_count_ -=1;
+    combinedorder_count_incomplete_ -=1;
+  }
+  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ < combinedorder_count_ )) {
+    combinedorder_count_ -= 1;
+  }
+  else {
+    return false;
+  }
   }
   CeilRobotMoveHome();
+  return true;
 }
 
 int AriacCompetition::search_bin(int part) {
@@ -1888,10 +2036,20 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
                                     SetRobotOrientation(0)));
 
       FloorRobotMoveCartesian(waypoints, 0.4, 0.1);
-      kittingorder_count_ -= 1;
-      if (doing_incomplete == true) {
+      
+      if (current_order.at(0).GetType() == ariac_msgs::msg::Order::KITTING) {
+        kittingorder_count_ -= 1;
+        if (doing_incomplete == true) {
         kittingorder_count_incomplete_ -= 1;
+        }
       }
+      else if (current_order.at(0).GetType() == ariac_msgs::msg::Order::COMBINED) {
+        combinedorder_count_ -= 1;
+        if (doing_incomplete == true) {
+        combinedorder_count_incomplete_ -= 1;
+        }
+      }
+      // kittingorder_count_ -= 1;
     }
   }
 }
@@ -2198,9 +2356,21 @@ void AriacCompetition::FlipPart(int part_clr, int part_type, int agv_num, int pa
 
   CeilRobotMoveHome();
 
-  kittingorder_count_ -=1;
-  if (doing_incomplete == true) {
-        kittingorder_count_incomplete_ -= 1;
+  // kittingorder_count_ -=1;
+  // if (doing_incomplete == true) {
+  //       kittingorder_count_incomplete_ -= 1;
+  // }
+  if (current_order.at(0).GetType() == ariac_msgs::msg::Order::KITTING) {
+    kittingorder_count_ -= 1;
+    if (doing_incomplete == true) {
+    kittingorder_count_incomplete_ -= 1;
+    }
+  }
+  else if (current_order.at(0).GetType() == ariac_msgs::msg::Order::COMBINED) {
+    combinedorder_count_ -= 1;
+    if (doing_incomplete == true) {
+    combinedorder_count_incomplete_ -= 1;
+    }
   }
 
 }
@@ -2497,10 +2667,22 @@ bool AriacCompetition::CeilRobotPlacePartOnKitTray(int agv_num, int quadrant) {
                                   SetRobotOrientation(0)));
 
     CeilRobotMoveCartesian(waypoints, 0.4, 0.1,true);
-    kittingorder_count_ -= 1;
-    if (doing_incomplete == true) {
+    // kittingorder_count_ -= 1;
+    // if (doing_incomplete == true) {
+    //     kittingorder_count_incomplete_ -= 1;
+    //   }
+    if (current_order.at(0).GetType() == ariac_msgs::msg::Order::KITTING) {
+        kittingorder_count_ -= 1;
+        if (doing_incomplete == true) {
         kittingorder_count_incomplete_ -= 1;
+        }
       }
+    else if (current_order.at(0).GetType() == ariac_msgs::msg::Order::COMBINED) {
+      combinedorder_count_ -= 1;
+      if (doing_incomplete == true) {
+      combinedorder_count_incomplete_ -= 1;
+      }
+    }
   }
 
   if(QualityCheck[5] || QualityCheck[11] || QualityCheck[17] || QualityCheck[23]){

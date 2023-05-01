@@ -133,7 +133,8 @@ class AriacCompetition : public rclcpp::Node {
         bool doing_incomplete = false; // Flag to check if the robot is doing an incomplete order
         int kittingorder_count_ = 0; // Number of kitting Tasks in the order
         int kittingorder_count_incomplete_ = 0; // Number of kitting Tasks in the incomplete order
-
+        int combinedorder_count_incomplete_ = 0; // Number of combined Tasks in the incomplete order
+        int combinedorder_count_ = 0; // Number of combined Tasks in the order
 
         std::vector<Orders> orders; // Vector of orders
         std::vector<Orders> incomplete_orders; // Vector of incomplete orders
@@ -219,7 +220,7 @@ class AriacCompetition : public rclcpp::Node {
         * @brief Method to carry out the combined task
         * 
         */
-        void do_combined(std::vector<Orders>);
+        bool do_combined(std::vector<Orders>);
 
         /**
         * @brief Method to search the bin for the part
