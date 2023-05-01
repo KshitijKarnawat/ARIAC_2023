@@ -311,7 +311,7 @@ class ImageSubscriber(Node):
 
     # Display image
     img = current_frame
-    img = img[150:479, 225:440]
+    img = img[150:479, 225:443]
     img_hsv = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2HSV)
     lower_red = np.array([0, 55, 25])
     upper_red = np.array([10, 255, 255])
@@ -556,6 +556,7 @@ class ImageSubscriber(Node):
     else:
       # self.get_logger().info("Pump")
       return 11
+    return 0
 
 def main(args=None):
    

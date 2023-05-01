@@ -1,3 +1,17 @@
+/**
+ * @copyright Copyright (c) 2023
+ * @file tray_id_detect.cpp
+ * @author Sanchit Kedia (sanchit@terpmail.umd.edu)
+ * @author Adarsh Malapaka (amalapak@terpmail.umd.edu)
+ * @author Tanmay Haldankar (tanmayh@terpmail.umd.edu)
+ * @author Sahruday Patti (sahruday@umd.edu)
+ * @author Kshitij Karnawat (kshitij@umd.edu)
+ * @brief Implementation of Tray Detection using OpenCV for ARIAC 2023 (Group 3)
+ * @version 0.2
+ * @date 2023-03-04
+ * 
+ * 
+ */
 #include "tray_id_detect.hpp"
 
 std::vector<int> tray_detect(cv::Mat frame){

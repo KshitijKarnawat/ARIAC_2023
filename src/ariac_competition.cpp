@@ -513,13 +513,13 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   int type_color_key;  // Stores the key of the specific part in the bin map
   int type_color_key_replacement;  // Stores the key of the specific part in the bin map
   int type_color_key_missing;  // Stores the key of the specific part in the bin map
-  std::vector<std::array<int, 2>> keys;
-  std::vector<std::array<int, 2>> keys_dropped;
+  std::vector<std::array<int, 2>> keys; // Stores the key of the specific part in the bin map and whether it is present or not
+  std::vector<std::array<int, 2>> keys_dropped; // Stores the key of the specific part that has been dropped in the bin map and whether it is present or not
   int type_color;   // Stores type and color info: For ex: 101 -> Battery Green
-  bool is_pump;
+  bool is_pump; // Stores whether the part is a pump or not for conveyor belt
 
   populate_bin_part();
-
+  // Conveyor belt part detection and picking
   while (conveyor_parts.size()!=0){
     if (conveyor_size == conveyor_parts.size()){
     floor_robot_->setJointValueTarget("linear_actuator_joint", -2.75);
@@ -535,7 +535,6 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       }
     }
     if (breakbeam_status){
-      // conv_parts_ = detect
       std::vector<geometry_msgs::msg::Pose> part_pose;
       group3::msg::Part part_rgb;
       part_pose = conv_parts_;
@@ -549,9 +548,6 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       }
     } 
   }
-
-  usleep(2000);
-  std::string part_info;
 
   FloorRobotMoveHome();
   CeilRobotMoveHome();
@@ -597,6 +593,7 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
             CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
           }
           bin_map[i[0]].part_type_clr = -1;
+          // Check if the part is dropped and if yes, then pick the replacement part
           if (dropped_parts_.size() != 0) {
             for (auto part : keys){
               bin_map[part[0]].part_type_clr = -1;
@@ -632,6 +629,7 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     process_order();
     populate_bin_part();
   }
+  // Final Quality Check for the Kitting Order to check if any part is missing
   auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
   usleep(2000);
   QualityCheck = CheckFaultyPart(current_order[0].GetId());
@@ -696,7 +694,39 @@ bool AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
 
 bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
 
+  bool is_pump; // Stores whether the part is a pump or not for conveyor belt
+
   populate_bin_part();
+  // Conveyor belt part detection and picking
+  while (conveyor_parts.size()!=0){
+    if (conveyor_size == conveyor_parts.size()){
+    floor_robot_->setJointValueTarget("linear_actuator_joint", -2.75);
+    floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 3.14);
+    floor_robot_->setJointValueTarget("floor_shoulder_lift_joint", -0.942478);
+    FloorRobotMovetoTarget();
+    FloorRobotMoveConveyorHome();
+    }
+    while(!breakbeam_status){
+      if (breakbeam2_status){
+        is_pump = true;
+        pump_rgb = conv_rgb_parts_;
+      }
+    }
+    if (breakbeam_status){
+      std::vector<geometry_msgs::msg::Pose> part_pose;
+      group3::msg::Part part_rgb;
+      part_pose = conv_parts_;
+      part_rgb = conv_rgb_parts_;
+      if (is_pump){
+        is_pump = false;
+        FloorRobotPickConvPart(part_pose, pump_rgb);
+      }
+      else {
+        FloorRobotPickConvPart(part_pose, part_rgb);
+      }
+    } 
+  }
+
   int agv_num;
   int station_num = current_order[0].GetCombined().get()->GetStation();
 
@@ -1109,7 +1139,7 @@ void AriacCompetition::conv_part_detector_cb(
     const group3::msg::Part::ConstSharedPtr msg){
     if (!conv_part_detector_received_data)
     {
-        RCLCPP_INFO(get_logger(), "Received data from Left part detector node");
+        RCLCPP_INFO(get_logger(), "Received data from Conveyor part detector node");
         conv_part_detector_received_data = true;
     }
 
