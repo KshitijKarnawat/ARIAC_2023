@@ -130,15 +130,11 @@ class AriacCompetition : public rclcpp::Node {
         bool competition_started_{false};   // Flag to check if competition is started
         int conveyor_size;  // Number of parts spawning on the conveyor 
         bool high_priority_order_{false}; // Flag to check if there is a high priority order
-        bool doing_incomplete = false; // Flag to check if the robot is doing an incomplete order
-        int kittingorder_count_ = 0; // Number of kitting Tasks in the order
-        int kittingorder_count_incomplete_ = 0; // Number of kitting Tasks in the incomplete order
 
 
         std::vector<Orders> orders; // Vector of orders
-        std::vector<Orders> incomplete_orders; // Vector of incomplete orders
+        std::vector<Orders> incomplete_order; // Vector of priority orders
         std::vector<Orders> current_order; // Vector of current order
-        std::vector<Orders> submitted_orders; // Vector of submitted orders
 
         std::vector<int> tray_aruco_id;     // Available Trays
         std::vector<int> available_agvs = {1, 2, 3, 4}; // Available AGVs
@@ -213,13 +209,13 @@ class AriacCompetition : public rclcpp::Node {
         * @brief Method to perform the assembly task
         * 
         */
-        void do_assembly(std::vector<Orders>);
+        bool do_assembly(std::vector<Orders>);
 
         /**
         * @brief Method to carry out the combined task
         * 
         */
-        void do_combined(std::vector<Orders>);
+        bool do_combined(std::vector<Orders>);
 
         /**
         * @brief Method to search the bin for the part
