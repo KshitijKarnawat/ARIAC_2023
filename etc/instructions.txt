@@ -4,7 +4,9 @@ ARIAC 2023 - RWA3 & RWA4 (Group 3)
 
 This repository contains the code for the RWA3 and RWA4 submissions for the Course ENPM663 - Building a Manufacturing Robotic Software System
 
--> GitHub repository: https://github.com/Sanchitkedia/ARIAC_2023 (main branch)
+
+-> GitHub repository: https://github.com/Sanchitkedia/ARIAC_2023 (main/RWA3/RWA4 branch)
+
 
 -> Team Members
 
@@ -14,13 +16,15 @@ This repository contains the code for the RWA3 and RWA4 submissions for the Cour
 - Sahruday Patti (UID: 118218366)
 - Kshitij Karnawat (UID: 119188651)
 
+
 -> Dependencies
 
 - ROS2(Galactic)
 - ARIAC 2023 Workspace
 - Ubuntu 20.04 LTS
-- OpenCV 4.2.0: Requires both Python and C++ versions. C++ version can be installed from [link](https://www.geeksforgeeks.org/how-to-install-opencv-in-c-on-linux/)
+- OpenCV 4.2.0: Requires both Python and C++ versions. C++ version can be installed from [link](https://www.geeksforgeeks.org/how-to-install-opencv-in-c-on-linux/). You will also need opencv-contrib for the ArucoDetector functionality.
 - cv_bridge: Can be installed using - ```sudo apt-get install ros-galactic-cv-bridge```
+
 
 -> Steps to Build the Package
 
@@ -32,6 +36,7 @@ This repository contains the code for the RWA3 and RWA4 submissions for the Cour
     rosdep update --include-eol-distros
     rosdep install --from-paths src -y --ignore-src
     colcon build --packages-select group3
+
 
 -> Steps to Run the Package
 
@@ -45,6 +50,9 @@ This repository contains the code for the RWA3 and RWA4 submissions for the Cour
     # ros2 launch ariac_gazebo ariac.launch.py trial_name:=rwa4 competitor_pkg:=group3 sensor_config:=group3_sensors
     
     ros2 launch group3 group3.launch.py
+
+Note: If your computer has OpenCV 4.7.0 installed, you might run into issues with cv::ArucoDetector which is meant for older versions of OpenCV like 4.2.0. In such a case, uncomment lines 23-24 and comment out 27-30 in ```tray_id_detect.cpp``` and rerun the demo.
+
 
 -> Package Structure
 .
