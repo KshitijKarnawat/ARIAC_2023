@@ -60,7 +60,7 @@ Note: If your computer has OpenCV 4.7.0 installed, you might run into issues wit
 ├─ LICENSE.md
 ├─ README.md
 ├─ config
-│  └─ group3_sensors.yaml          # Sensor configuration for RWA3/4
+│  └─ group3_sensors.yaml   # Sensor YAML file for RWA3/RWA4
 ├─ document
 │  ├─ Activity_Diagram_v1.jpg      # Activity Diagram for RWA2
 │  ├─ Activity_Diagram_v2.jpg      # Activity Diagram for RWA3/4
@@ -74,23 +74,23 @@ Note: If your computer has OpenCV 4.7.0 installed, you might run into issues wit
 │  └─ __init__.py
 ├─ include
 │  └─ group3
-│     ├─ ariac_competition.hpp    # Header for AriacCompetition class
-│     ├─ map_poses.hpp            # Header for Bin Quadrant Pose class
-│     ├─ part_type_detect.hpp     # Header for PartTypeDetect class
-│     └─ tray_id_detect.hpp       # Header for TrayIdDetect class
+│     ├─ ariac_competition.hpp
+│     ├─ map_poses.hpp
+│     ├─ part_type_detect.hpp
+│     └─ tray_id_detect.hpp
 ├─ launch
-│  └─ group3.launch.py           # Launch file for RWA3/4
+│  └─ group3.launch.py             # Launch file for RWA3/4
 ├─ msg
-│  ├─ Part.msg                   # Message for Type Part
-│  └─ Parts.msg                  # Message for Type Parts
+│  ├─ Part.msg                     # Message for Type Part
+│  └─ Parts.msg                    # Message for Type Parts
 ├─ nodes
 │  ├─ .placeholder
-│  └─ part_detector.py            # Python script for Part Detection
+│  └─ part_detector.py             # To detect the Part using OpenCV
 ├─ package.xml
 ├─ rviz
 │  └─ ariac.rviz
 └─ src
-   ├─ ariac_competition.cpp       # Implementation of AriacCompetition class
-   ├─ map_poses.cpp               # Implementation of Bin Quadrant Pose class
-   ├─ part_type_detect.cpp        # Implementation of PartTypeDetect class
-   └─ tray_id_detect.cpp          # Implementation of TrayIdDetect class
+   ├─ ariac_competition.cpp
+   ├─ map_poses.cpp
+   ├─ part_type_detect.cpp  
+   └─ tray_id_detect.cpp           # To detect the Tray ID using OpenCV

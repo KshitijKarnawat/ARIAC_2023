@@ -59,16 +59,7 @@ Note: If your computer has OpenCV 4.7.0 installed, you might run into issues wit
 ├─ README.md
 ├─ config
 │  └─ group3_sensors.yaml   # Sensor YAML file for RWA3/RWA4
-├─ config
-│  └─ group3_sensors.yaml          # Sensor configuration for RWA3/4
 ├─ document
-│  ├─ Activity_Diagram_v1.jpg
-│  ├─ Class_Diagram_v1.jpg
-│  └─ Class_Diagram_v2.jpg  # Modified class diagram
-├─ etc
-│  ├─ instructions.txt
-│  ├─ rwa3.yaml             # Trial YAML file for RWA3
-│  └─ rwa4.yaml             # Trial YAML file for RWA4
 │  ├─ Activity_Diagram_v1.jpg      # Activity Diagram for RWA2
 │  ├─ Activity_Diagram_v2.jpg      # Activity Diagram for RWA3/4
 │  ├─ Class_Diagram_v1.jpg         # Class Diagram for RWA2
@@ -86,23 +77,13 @@ Note: If your computer has OpenCV 4.7.0 installed, you might run into issues wit
 │     ├─ part_type_detect.hpp
 │     └─ tray_id_detect.hpp
 ├─ launch
-├─ msg
-│  ├─ Part.msg
-│  └─ Parts.msg
-│     ├─ ariac_competition.hpp     # Header for AriacCompetition class
-│     ├─ map_poses.hpp             # Header for Bin Quadrant Pose class
-│     ├─ part_type_detect.hpp      # Header for PartTypeDetect class
-│     └─ tray_id_detect.hpp        # Header for TrayIdDetect class
-├─ launch
 │  └─ group3.launch.py             # Launch file for RWA3/4
 ├─ msg
 │  ├─ Part.msg                     # Message for Type Part
 │  └─ Parts.msg                    # Message for Type Parts
 ├─ nodes
 │  ├─ .placeholder
-│  └─ part_detector.py      # To detect the Part using OpenCV
-│  ├─ .placeholder
-│  └─ part_detector.py             # Python script for Part Detection
+│  └─ part_detector.py             # To detect the Part using OpenCV
 ├─ package.xml
 ├─ rviz
 │  └─ ariac.rviz
@@ -110,10 +91,6 @@ Note: If your computer has OpenCV 4.7.0 installed, you might run into issues wit
    ├─ ariac_competition.cpp
    ├─ map_poses.cpp
    ├─ part_type_detect.cpp  
-   └─ tray_id_detect.cpp    # To detect the Tray ID using OpenCV
-   ├─ ariac_competition.cpp        # Implementation of AriacCompetition class
-   ├─ map_poses.cpp                # Implementation of Bin Quadrant Pose class
-   ├─ part_type_detect.cpp         # Implementation of PartTypeDetect class
-   └─ tray_id_detect.cpp           # Implementation of TrayIdDetect class
+   └─ tray_id_detect.cpp           # To detect the Tray ID using OpenCV
 
 ```

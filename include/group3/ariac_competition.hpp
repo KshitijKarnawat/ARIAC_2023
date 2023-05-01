@@ -133,7 +133,7 @@ class AriacCompetition : public rclcpp::Node {
 
 
         std::vector<Orders> orders; // Vector of orders
-        std::vector<Orders> incomplete_order; // Vector of priority orders
+        std::vector<Orders> incomplete_order; // Vector of incomplete orders
         std::vector<Orders> current_order; // Vector of current order
 
         std::vector<int> tray_aruco_id;     // Available Trays
