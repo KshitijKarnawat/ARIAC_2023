@@ -236,10 +236,11 @@ void AriacCompetition::end_competition_timer_callback() {
   }
   
   else if ((!orders.empty() || !current_order.empty()) && conveyor_parts_flag_) {
-    bool flag;
-    flag = process_order();
+    // bool flag;
+    // flag = process_order();
+    process_order();
   }
-  else if(orders.empty() && current_order.empty() && incomplete_orders.empty() && conveyor_parts_flag_){
+  else if(orders.empty() && current_order.empty() && incomplete_order.empty() && conveyor_parts_flag_){
     submit_orders_ = true;
   }
 }
@@ -421,148 +422,89 @@ void AriacCompetition::submit_order(std::string order_id) {
 
 bool AriacCompetition::process_order() {
 
-  current_order.push_back(orders.at(0));
-  orders.erase(orders.begin());
-  bool completed_order = false;
-
-  if(current_order[0].GetType() == ariac_msgs::msg::Order::KITTING) {
-    if (current_order[0].IsPriority() == 1) {
-    //   doing_incomplete = true;
-          high_priority_order_ = false;
-    }
-    completed_order = do_kitting(current_order);
-    if (!completed_order) {
-      kittingorder_count_incomplete_ = kittingorder_count_;
-      kittingorder_count_ = 0;
-      incomplete_orders.push_back(current_order.at(0));
-      current_order.erase(current_order.begin());
-      RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Pushed incomplete Orders \033[0m");
-      return false;
-    }
-    else {
-      submit_order(current_order[0].GetId().c_str());
-      if (current_order[0].IsPriority() == 1) {
-          if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::KITTING)) {
-            current_order.erase(current_order.begin());
-            current_order.push_back(incomplete_orders.at(0));
-            incomplete_orders.erase(incomplete_orders.begin());
-            doing_incomplete = true;
-            completed_order = do_kitting(current_order);
-            if (!completed_order) {
-              kittingorder_count_incomplete_ = kittingorder_count_;
-              kittingorder_count_ = 0;
-              incomplete_orders.push_back(current_order.at(0));
-              current_order.erase(current_order.begin());
-              return false;
-            }
-            else {
-              submit_order(current_order[0].GetId().c_str());
-              current_order.erase(current_order.begin());
-              doing_incomplete = false;
-              return true;
-            }
-          }
-          else if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::COMBINED)) {
-            current_order.erase(current_order.begin());
-            current_order.push_back(incomplete_orders.at(0));
-            incomplete_orders.erase(incomplete_orders.begin());
-            doing_incomplete = true;
-            completed_order = do_combined(current_order);
-            if (!completed_order) {
-              combinedorder_count_incomplete_ = combinedorder_count_;
-              combinedorder_count_ = 0;
-              incomplete_orders.push_back(current_order.at(0));
-              current_order.erase(current_order.begin());
-              return false;
-            }
-            else {
-              submit_order(current_order[0].GetId().c_str());
-              current_order.erase(current_order.begin());
-              doing_incomplete = false;
-              return true;
-            }
-          }
-          else {
-            return true;
-          }
+  if (high_priority_order_ == false) {
+      current_order.push_back(orders.at(0));
+      orders.erase(orders.begin());
+      RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
+      RCLCPP_INFO_STREAM(this->get_logger(), "Doing Task " <<  current_order[0].GetId() << " Priority: "  << std::to_string(current_order[0].IsPriority()));
+      RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
+      if(current_order[0].GetType() == ariac_msgs::msg::Order::KITTING) {
+        if ( do_kitting(current_order) == true) {
+          submit_order(current_order[0].GetId());
+          current_order.clear();
+          return true;
+        }
+        else {
+          return false;
+        }
       }
-      else {
-        current_order.erase(current_order.begin());
+      else if (current_order[0].GetType() == ariac_msgs::msg::Order::ASSEMBLY) {
+        if ( do_assembly(current_order) == true) {
+          submit_order(current_order[0].GetId());
+          current_order.clear();
+          return true;
+        }
+        else {
+          return false;
+        }
+      }
+      else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
+        if (do_combined(current_order) == true) {
+          submit_order(current_order[0].GetId());
+          current_order.clear();
+          return true;
+        }
+        else {
+          return false;
+        }
+      }
+  } 
+  else if (high_priority_order_ == true){
+    incomplete_order.push_back(current_order[0]);
+    current_order.clear();
+    current_order.push_back(orders.at(0));
+    orders.erase(orders.begin());
+    RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
+    RCLCPP_INFO_STREAM(this->get_logger(), "Doing Task " <<  current_order[0].GetId() << " Priority: "  << std::to_string(current_order[0].IsPriority()));
+    RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
+    if(current_order[0].GetType() == ariac_msgs::msg::Order::KITTING) {
+      high_priority_order_ = false;
+      if (do_kitting(current_order) == true) {
+        submit_order(current_order[0].GetId());
+        current_order.clear();
+        current_order.push_back(incomplete_order[0]);
+        incomplete_order.erase(incomplete_order.begin());
         return true;
       }
-      
-    }
-  }
-  else if (current_order[0].GetType() == ariac_msgs::msg::Order::ASSEMBLY) {
-    do_assembly(current_order);
-  }
-  else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
-    // do_combined(current_order);
-    if (current_order[0].IsPriority() == 1) {
-    //   doing_incomplete = true;
-          high_priority_order_ = false;
-    }
-    completed_order = do_combined(current_order);
-    if (!completed_order) {
-      combinedorder_count_incomplete_ = combinedorder_count_;
-      combinedorder_count_ = 0;
-      incomplete_orders.push_back(current_order.at(0));
-      current_order.erase(current_order.begin());
-      RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Pushed incomplete Orders \033[0m");
-      return false;
-    }
-    else {
-      submit_order(current_order[0].GetId().c_str());
-      if (current_order[0].IsPriority() == 1) {
-          if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::KITTING)) {
-            current_order.erase(current_order.begin());
-            current_order.push_back(incomplete_orders.at(0));
-            incomplete_orders.erase(incomplete_orders.begin());
-            doing_incomplete = true;
-            completed_order = do_kitting(current_order);
-            if (!completed_order) {
-              kittingorder_count_incomplete_ = kittingorder_count_;
-              kittingorder_count_ = 0;
-              incomplete_orders.push_back(current_order.at(0));
-              current_order.erase(current_order.begin());
-              return false;
-            }
-            else {
-              submit_order(current_order[0].GetId().c_str());
-              current_order.erase(current_order.begin());
-              doing_incomplete = false;
-              return true;
-            }
-          }
-          else if (!incomplete_orders.empty() && (incomplete_orders.at(0).GetType()==ariac_msgs::msg::Order::COMBINED)) {
-            current_order.erase(current_order.begin());
-            current_order.push_back(incomplete_orders.at(0));
-            incomplete_orders.erase(incomplete_orders.begin());
-            doing_incomplete = true;
-            completed_order = do_combined(current_order);
-            if (!completed_order) {
-              combinedorder_count_incomplete_ = combinedorder_count_;
-              combinedorder_count_ = 0;
-              incomplete_orders.push_back(current_order.at(0));
-              current_order.erase(current_order.begin());
-              return false;
-            }
-            else {
-              submit_order(current_order[0].GetId().c_str());
-              current_order.erase(current_order.begin());
-              doing_incomplete = false;
-              return true;
-            }
-          }
-          else {
-            return true;
-          }
-      }
       else {
-        current_order.erase(current_order.begin());
+        return false;
+      }
+    }
+    else if (current_order[0].GetType() == ariac_msgs::msg::Order::ASSEMBLY) {
+      high_priority_order_ = false;
+      if ( do_assembly(current_order) == true) {
+        submit_order(current_order[0].GetId());
+        current_order.clear();
+        current_order.push_back(incomplete_order[0]);
+        incomplete_order.erase(incomplete_order.begin());
         return true;
       }
-      
+      else {
+        return false;
+      }
+    }
+    else if (current_order[0].GetType() == ariac_msgs::msg::Order::COMBINED) {
+      high_priority_order_ = false;
+      if ( do_combined(current_order) == true) {
+        submit_order(current_order[0].GetId());
+        current_order.clear();
+        current_order.push_back(incomplete_order[0]);
+        incomplete_order.erase(incomplete_order.begin());
+        return true;
+      }
+      else {
+        return false;
+      }
     }
   }
 }
@@ -574,9 +516,7 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   std::vector<std::array<int, 2>> keys;
   std::vector<std::array<int, 2>> keys_dropped;
   int type_color;   // Stores type and color info: For ex: 101 -> Battery Green
-  int check;
   bool is_pump;
-  // kittingorder_count_ = 0;
 
   populate_bin_part();
 
@@ -609,187 +549,106 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
       }
     } 
   }
-  kittingorder_count_ += 1; //pickandplacetray_count_ += 1;
+
   usleep(2000);
+  std::string part_info;
+
+  FloorRobotMoveHome();
+  CeilRobotMoveHome();
+  if (high_priority_order_){
+    process_order();
+    populate_bin_part();
+  }
+  FloorRobotPickandPlaceTray(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
   populate_bin_part();
+
+  int count = 0;
   for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
+    if (high_priority_order_){
+      process_order();
+      populate_bin_part();
+    }
     type_color = (current_order[0].GetKitting().get()->GetParts()[j][1]*10 + current_order[0].GetKitting().get()->GetParts()[j][0]);
     type_color_key = search_bin(type_color);
+    RCLCPP_INFO_STREAM(this->get_logger(), "Type Color Key: " << std::to_string(type_color_key));
     if(type_color_key != -1){
       // 1 denotes part found in Bin
       keys.push_back({type_color_key, 1});
-      bin_map[type_color_key].part_type_clr = -1;
-      kittingorder_count_ += 1;
     }else {
       RCLCPP_WARN_STREAM(this->get_logger(),"The Missing Part is : " << ConvertPartColorToString(type_color%10) << " " << ConvertPartTypeToString(type_color/10));
       RCLCPP_WARN_STREAM(this->get_logger(),"This Kitting order has insufficient parts : " << current_order[0].GetId());
       // 0 denotes part not found anywhere
       keys.push_back({type_color_key, 0});
     }
-  }
-  // kittingorder_count_ += 1; //Move Agv
-  std::string part_info;
-
-  FloorRobotMoveHome();
-  CeilRobotMoveHome();
-  if (!high_priority_order_ && doing_incomplete == false) {
-    FloorRobotPickandPlaceTray(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
-    kittingorder_count_ -= 1; //completedpickandplacetray
-  }
-  else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ == kittingorder_count_ )) {
-    FloorRobotPickandPlaceTray(current_order[0].GetKitting().get()->GetTrayId(),current_order[0].GetKitting().get()->GetAgvId());
-    kittingorder_count_ -= 1; //completedpickandplacetray
-    kittingorder_count_incomplete_ -= 1;
-  }
-  else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ < kittingorder_count_ )) {
-    kittingorder_count_ -= 1;
-  }
-  else {
-    return false;
-  }
-  populate_bin_part();
-
-  int count = 0;
-  for (auto i : keys){
-    if (i[1] == 0) {
+    for (auto i : keys){
+      if (i[1] == 0) {
+        count++;
+        continue;
+      } else if (i[1] == 1) {
+          RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
+          if (FloorRobotReachableWorkspace(i[0])) {
+            CeilRobotMoveHome();
+            FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
+            FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+          } else {
+            // Implement Ceiling Robot FlipPart() later
+            FloorRobotMoveHome();
+            CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
+            CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
+          }
+          bin_map[i[0]].part_type_clr = -1;
+          if (dropped_parts_.size() != 0) {
+            for (auto part : keys){
+              bin_map[part[0]].part_type_clr = -1;
+            }
+            for (auto i : dropped_parts_) {
+              type_color_key_replacement = search_bin(i.type*10 + i.color);
+              if (type_color_key_replacement == -1) {
+                break;
+              }
+              if (FloorRobotReachableWorkspace(type_color_key_replacement)) {
+                CeilRobotMoveHome();
+                RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+                FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
+                FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
+              } else {
+                FloorRobotMoveHome();
+                RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+                CeilRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
+                CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
+              }
+              bin_map[type_color_key_replacement].part_type_clr = -1;
+            }
+            dropped_parts_.clear();
+            populate_bin_part();
+          }
+      }
       count++;
-      continue;
-    } else if (i[1] == 1) {
-      if (!high_priority_order_ && doing_incomplete == false) {
-        RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
-        
-        if (FloorRobotReachableWorkspace(i[0])) {
-          CeilRobotMoveHome();
-          FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
-          FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-
-        } else {
-          // Implement Ceiling Robot FlipPart() later
-          FloorRobotMoveHome();
-          CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
-          CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
-        }
-        bin_map[i[0]].part_type_clr = -1;
-        if (dropped_parts_.size() != 0) {
-          for (auto part : keys){
-            bin_map[part[0]].part_type_clr = -1;
-          }
-          for (auto i : dropped_parts_) {
-            type_color_key_replacement = search_bin(i.type*10 + i.color);
-            if (type_color_key_replacement == -1) {
-              break;
-            }
-            if (FloorRobotReachableWorkspace(type_color_key_replacement)) {
-              CeilRobotMoveHome();
-              RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
-              FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
-              FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-            } else {
-              FloorRobotMoveHome();
-              RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
-              CeilRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
-              CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
-            }
-            bin_map[type_color_key_replacement].part_type_clr = -1;
-          }
-          dropped_parts_.clear();
-          populate_bin_part();
-        }
-      } 
-      else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ == kittingorder_count_ )) {
-        RCLCPP_INFO_STREAM(this->get_logger(),"Picking Part " << ConvertPartColorToString(bin_map[i[0]].part_type_clr%10) << " " << ConvertPartTypeToString(bin_map[i[0]].part_type_clr/10));
-        
-        if (FloorRobotReachableWorkspace(i[0])) {
-          CeilRobotMoveHome();
-          FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
-          FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-        } else {
-          // Implement Ceiling Robot FlipPart() later
-          FloorRobotMoveHome();
-          CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
-          CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
-        }
-        bin_map[i[0]].part_type_clr = -1;
-        if (dropped_parts_.size() != 0) {
-          for (auto part : keys){
-            bin_map[part[0]].part_type_clr = -1;
-          }
-          for (auto i : dropped_parts_) {
-            type_color_key_replacement = search_bin(i.type*10 + i.color);
-            if (type_color_key_replacement == -1) {
-              break;
-            }
-            if (FloorRobotReachableWorkspace(type_color_key_replacement)) {
-              CeilRobotMoveHome();
-              RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
-              FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
-              FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
-            } else {
-              FloorRobotMoveHome();
-              RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
-              CeilRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
-              CeilRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]); 
-            }
-            bin_map[type_color_key_replacement].part_type_clr = -1;
-          }
-          dropped_parts_.clear();
-          populate_bin_part();
-        }
-      }
-      else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ < kittingorder_count_ )) {
-        kittingorder_count_ -= 1;
-      }
-      else {
-        return false;
-      }
     }
-    count++;
+    keys.clear();
   }
 
-  if (!high_priority_order_ && doing_incomplete == false) {
-    auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
-    usleep(2000);
-    QualityCheck = CheckFaultyPart(current_order[0].GetId());
-    if(!QualityCheck[1]){
-      populate_bin_part();
-      for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
-        if(QualityCheck[4+(j*6)]){
-          type_color_key_missing = search_bin(current_order[0].GetKitting().get()->GetParts()[j][1]*10+current_order[0].GetKitting().get()->GetParts()[j][0]);
-          if (type_color_key_missing != -1) {
-            kittingorder_count_ += 1;
-            RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Missing Part " << ConvertPartColorToString((bin_map[type_color_key_missing].part_type_clr)%10) << " " << ConvertPartTypeToString((bin_map[type_color_key_missing].part_type_clr)/10));
-            FloorRobotPickBinPart((bin_map[type_color_key_missing].part_type_clr)%10,(bin_map[type_color_key_missing].part_type_clr)/10, bin_map[type_color_key_missing].part_pose, type_color_key_missing);
-            FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[j][2]);
-          }
+  if (high_priority_order_){
+    process_order();
+    populate_bin_part();
+  }
+  auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
+  usleep(2000);
+  QualityCheck = CheckFaultyPart(current_order[0].GetId());
+  if(!QualityCheck[1]){
+    populate_bin_part();
+    for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
+      if(QualityCheck[4+(j*6)]){
+        type_color_key_missing = search_bin(current_order[0].GetKitting().get()->GetParts()[j][1]*10+current_order[0].GetKitting().get()->GetParts()[j][0]);
+        if (type_color_key_missing != -1) {
+          RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Missing Part " << ConvertPartColorToString((bin_map[type_color_key_missing].part_type_clr)%10) << " " << ConvertPartTypeToString((bin_map[type_color_key_missing].part_type_clr)/10));
+          FloorRobotPickBinPart((bin_map[type_color_key_missing].part_type_clr)%10,(bin_map[type_color_key_missing].part_type_clr)/10, bin_map[type_color_key_missing].part_pose, type_color_key_missing);
+          FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[j][2]);
         }
       }
     }
   }
-  else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ == kittingorder_count_ )) {
-    auto QualityCheck = CheckFaultyPart(current_order[0].GetId());
-    usleep(2000);
-    QualityCheck = CheckFaultyPart(current_order[0].GetId());
-    if(!QualityCheck[1]){
-      populate_bin_part();
-      for (unsigned int j =0; j<current_order[0].GetKitting().get()->GetParts().size(); j++){
-        if(QualityCheck[4+(j*6)]){
-          type_color_key_missing = search_bin(current_order[0].GetKitting().get()->GetParts()[j][1]*10+current_order[0].GetKitting().get()->GetParts()[j][0]);
-          if (type_color_key_missing != -1) {
-            kittingorder_count_ += 1;
-            RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Missing Part " << ConvertPartColorToString((bin_map[type_color_key_missing].part_type_clr)%10) << " " << ConvertPartTypeToString((bin_map[type_color_key_missing].part_type_clr)/10));
-            FloorRobotPickBinPart((bin_map[type_color_key_missing].part_type_clr)%10,(bin_map[type_color_key_missing].part_type_clr)/10, bin_map[type_color_key_missing].part_pose, type_color_key_missing);
-            FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[j][2]);
-          }
-        }
-      }
-    }
-  }
-  else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ < kittingorder_count_ )) {
-    kittingorder_count_ -= 1;
-  }
-  else {
-      return false;
-  }
+
 
   int used_agv = current_order[0].GetKitting().get()->GetAgvId();
   if (available_agvs.size() > 0) {
@@ -799,21 +658,9 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     RCLCPP_WARN_STREAM(this->get_logger(),"No more AGVs available!");
   }
 
-  // if (!high_priority_order_ && doing_incomplete == false) {
-  //   move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
-  //   kittingorder_count_ -= 1;
-  // } 
-  // else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ == kittingorder_count_ )) {
-  //   move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
-  //   kittingorder_count_ -= 1;
-  //   kittingorder_count_incomplete_ -= 1;
-  // }
-  // else if ((doing_incomplete == true) && (kittingorder_count_incomplete_ < kittingorder_count_ )) {
-  //   kittingorder_count_ -= 1;
-  // }
-  // else {
-  //   return false;
-  // }
+  if (high_priority_order_){
+    process_order();
+  }
   move_agv(current_order[0].GetKitting().get()->GetAgvId(), current_order[0].GetKitting().get()->GetDestination());
   FloorRobotMoveHome();
   CeilRobotMoveHome();
@@ -822,7 +669,7 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
 }
 
 
-void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
+bool AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
   std::string part_info;
   
   if (current_order[0].GetAssembly().get()->GetAgvNumbers().size() > 1) {
@@ -844,6 +691,7 @@ void AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
   }
   
   // ceil.SendHome();
+  return true;
 }
 
 bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
@@ -868,74 +716,49 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   std::string part_info;
 
   RCLCPP_INFO_STREAM(this->get_logger(),"Use AGV " << agv_num << " and Tray ID " << tray_num);
-  combinedorder_count_+=2; //PickandPlacetray
+    
+  FloorRobotMoveHome();
+  CeilRobotMoveToAssemblyStation(station_num);
+  if (high_priority_order_){
+    process_order();
+    populate_bin_part();
+  }
+  FloorRobotPickandPlaceTray(tray_num, agv_num);
+  
   int type_color_key;
   std::vector<std::array<int, 2>> keys;
   int type_color;
+  
+  int count = 0;
+  std::array<int,4> quadrant = {1,2,3,4};
   for (unsigned int j = 0; j < current_order[0].GetCombined().get()->GetParts().size(); j++){
+    if (high_priority_order_){
+      process_order();
+      populate_bin_part();
+    }
     type_color = (current_order[0].GetCombined().get()->GetParts()[j].type*10 + current_order[0].GetCombined().get()->GetParts()[j].color);
     type_color_key = search_bin(type_color);
     if(type_color_key != -1){
-      combinedorder_count_+=1;
       keys.push_back({type_color_key, 1});
     }
-  }
-
-  FloorRobotMoveHome();
-  CeilRobotMoveToAssemblyStation(station_num);
-  if (!high_priority_order_ && doing_incomplete == false) {
-    FloorRobotPickandPlaceTray(tray_num, agv_num);
-    combinedorder_count_ -= 1;
-  }
-  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ == combinedorder_count_ )) {
-    FloorRobotPickandPlaceTray(tray_num, agv_num);
-    combinedorder_count_ -= 1;
-    combinedorder_count_incomplete_ -= 1;
-  }
-  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ < combinedorder_count_ )) {
-    combinedorder_count_ -= 1;
-  }
-  else {
-    return false;
-  }
-  int count = 0;
-  std::array<int,4> quadrant = {1,2,3,4};
-  for (auto i : keys){
-    if (i[1] == 0) {
-      continue;
-    } else if (i[1] == 1) {
-      if (!high_priority_order_ && doing_incomplete == false) {
+    for (auto i : keys){
+      if (i[1] == 0) {
+        continue;
+      } else if (i[1] == 1) {
         part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
         if (FloorRobotReachableWorkspace(i[0])) {
-        // CeilRobotMoveHome();
+          // CeilRobotMoveHome();
           FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
           FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
         } else {
-        // FloorRobotMoveHome();
+          // FloorRobotMoveHome();
           CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
           CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]);
         }
-      }
-      else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ == combinedorder_count_ )) {
-        part_info = ConvertPartColorToString((bin_map[i[0]].part_type_clr)%10) + " " + ConvertPartTypeToString((bin_map[i[0]].part_type_clr)/10);
-        if (FloorRobotReachableWorkspace(i[0])) {
-        // CeilRobotMoveHome();
-          FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
-          FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
-        } else {
-        // FloorRobotMoveHome();
-          CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
-          CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]);
-        }
-      }
-      else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ < combinedorder_count_ )) {
-        combinedorder_count_ -= 1;
-      }
-      else {
-        return false;
       } 
-    } 
-    count++;
+      count++;
+    }
+    keys.clear();
   }
 
   int Dest;
@@ -947,7 +770,13 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   lock_agv(agv_num);
   move_agv(agv_num, Dest);
   FloorRobotMoveHome();
+  CeilRobotMoveToAssemblyStation(station_num);
   unlock_agv(agv_num);
+
+  if (high_priority_order_){
+    process_order();
+    CeilRobotMoveToAssemblyStation(station_num);
+  }
 
   std::string srv_name = "/ariac/get_pre_assembly_poses";
 
@@ -984,7 +813,10 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   }
 
   for (auto const &part_to_assemble : current_order[0].GetCombined().get()->GetParts()) {
-  if (!high_priority_order_ && doing_incomplete == false) { 
+    if (high_priority_order_){
+      process_order();
+      CeilRobotMoveToAssemblyStation(station_num);
+    }
     ariac_msgs::msg::PartPose part_to_pick;
     part_to_pick.part.type = part_to_assemble.type;
     part_to_pick.part.color = part_to_assemble.color;
@@ -994,39 +826,13 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
         break;
       }
     }
+
     // Pick up part
     CeilRobotPickAGVPart(part_to_pick);
     
     CeilRobotAssemblePart(station_num, part_to_assemble);
 
     CeilRobotMoveToAssemblyStation(station_num);
-    combinedorder_count_ -=1;
-  }
-  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ == combinedorder_count_ )) {
-    ariac_msgs::msg::PartPose part_to_pick;
-    part_to_pick.part.type = part_to_assemble.type;
-    part_to_pick.part.color = part_to_assemble.color;
-    for (auto const &agv_part: agv_part_poses) {
-      if (agv_part.part.type == part_to_assemble.type && agv_part.part.color == part_to_assemble.color) {
-        part_to_pick.pose = agv_part.pose;
-        break;
-      }
-    }
-    // Pick up part
-    CeilRobotPickAGVPart(part_to_pick);
-    
-    CeilRobotAssemblePart(station_num, part_to_assemble);
-
-    CeilRobotMoveToAssemblyStation(station_num);
-    combinedorder_count_ -=1;
-    combinedorder_count_incomplete_ -=1;
-  }
-  else if ((doing_incomplete == true) && (combinedorder_count_incomplete_ < combinedorder_count_ )) {
-    combinedorder_count_ -= 1;
-  }
-  else {
-    return false;
-  }
   }
   CeilRobotMoveHome();
   return true;
@@ -1897,7 +1703,6 @@ void AriacCompetition::FloorRobotPickandPlaceTray(int tray_idx , int agv_num){
 }
 
 bool AriacCompetition::FloorRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad){
-  bool found_part = false;
   std::string bin_side;
 
   if (part_quad < 37) {
@@ -2036,20 +1841,6 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
                                     SetRobotOrientation(0)));
 
       FloorRobotMoveCartesian(waypoints, 0.4, 0.1);
-      
-      if (current_order.at(0).GetType() == ariac_msgs::msg::Order::KITTING) {
-        kittingorder_count_ -= 1;
-        if (doing_incomplete == true) {
-        kittingorder_count_incomplete_ -= 1;
-        }
-      }
-      else if (current_order.at(0).GetType() == ariac_msgs::msg::Order::COMBINED) {
-        combinedorder_count_ -= 1;
-        if (doing_incomplete == true) {
-        combinedorder_count_incomplete_ -= 1;
-        }
-      }
-      // kittingorder_count_ -= 1;
     }
   }
 }
@@ -2088,7 +1879,6 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
 
   geometry_msgs::msg::Pose part_pose_;
   part_pose_ = MultiplyPose(camera_pose_, part_camera_pose);
-  double part_rotation = GetYaw(part_pose_);
   RCLCPP_INFO_STREAM(this->get_logger(), "\033[0;91m Conveyor Detetcted \033[0m" << ConvertPartColorToString(part_clr) << " " << ConvertPartTypeToString(part_type));
 
   std::vector<geometry_msgs::msg::Pose> waypoints;
@@ -2096,19 +1886,18 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
   
 
   if (part_type == ariac_msgs::msg::Part::REGULATOR){
-      starting_pose.position.x = part_pose_.position.x;
-      starting_pose.position.y -= 0.4;
-      waypoints.push_back(starting_pose);
-      FloorRobotMoveCartesian(waypoints, 1, 1);
-      waypoints.clear();
+    starting_pose.position.x = part_pose_.position.x;
+    starting_pose.position.y -= 0.4;
+    waypoints.push_back(starting_pose);
+    FloorRobotMoveCartesian(waypoints, 1, 1);
+    waypoints.clear();
 
-      while (!breakbeam1_status){}
-      starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0009;
-      waypoints.push_back(starting_pose);
-      FloorRobotSetGripperState(true);
-      FloorRobotMoveCartesian(waypoints, 1, 1);
+    while (!breakbeam1_status){}
+    starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0009;
+    waypoints.push_back(starting_pose);
+    FloorRobotSetGripperState(true);
+    FloorRobotMoveCartesian(waypoints, 1, 1);
   } 
-
   else if (part_type == ariac_msgs::msg::Part::PUMP) {
     starting_pose.position.x = part_pose_.position.x;
     starting_pose.position.y -= 0.08;
@@ -2130,20 +1919,33 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
     FloorRobotSetGripperState(true);
     FloorRobotMoveCartesian(waypoints, 0.5, 0.5);
   }
-      
-  else{
-      starting_pose.position.x = part_pose_.position.x;
-      starting_pose.position.y -= 0.4;
-      waypoints.push_back(starting_pose);
-      FloorRobotMoveCartesian(waypoints, 1, 1);
-      waypoints.clear();
+  else if (part_type == ariac_msgs::msg::Part::SENSOR){
+    starting_pose.position.x = part_pose_.position.x;
+    starting_pose.position.y -= 0.4;
+    waypoints.push_back(starting_pose);
+    FloorRobotMoveCartesian(waypoints, 1, 1);
+    waypoints.clear();
 
-      while (!breakbeam1_status){}
-      
-      starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0009;
-      waypoints.push_back(starting_pose);
-      FloorRobotSetGripperState(true);
-      FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
+    while (!breakbeam1_status){}
+    
+    starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0009;
+    waypoints.push_back(starting_pose);
+    FloorRobotSetGripperState(true);
+    FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
+  }
+  else {
+    starting_pose.position.x = part_pose_.position.x;
+    starting_pose.position.y -= 0.4;
+    waypoints.push_back(starting_pose);
+    FloorRobotMoveCartesian(waypoints, 1, 1);
+    waypoints.clear();
+
+    while (!breakbeam1_status){}
+    
+    starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0006;
+    waypoints.push_back(starting_pose);
+    FloorRobotSetGripperState(true);
+    FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
   }
 
   waypoints.clear();
@@ -2181,7 +1983,7 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
   }
   else if (part_type == ariac_msgs::msg::Part::SENSOR) {
     waypoints.push_back(BuildPose(set_pose.position.x - 0.01, set_pose.position.y,
-                                set_pose.position.z + part_heights_[part_type] + drop_height_, SetRobotOrientation(0)));
+                                set_pose.position.z + part_heights_[part_type] + 0.1 + drop_height_, SetRobotOrientation(0)));
   }
   else{
     waypoints.push_back(BuildPose(set_pose.position.x - 0.005, set_pose.position.y,
@@ -2356,23 +2158,6 @@ void AriacCompetition::FlipPart(int part_clr, int part_type, int agv_num, int pa
 
   CeilRobotMoveHome();
 
-  // kittingorder_count_ -=1;
-  // if (doing_incomplete == true) {
-  //       kittingorder_count_incomplete_ -= 1;
-  // }
-  if (current_order.at(0).GetType() == ariac_msgs::msg::Order::KITTING) {
-    kittingorder_count_ -= 1;
-    if (doing_incomplete == true) {
-    kittingorder_count_incomplete_ -= 1;
-    }
-  }
-  else if (current_order.at(0).GetType() == ariac_msgs::msg::Order::COMBINED) {
-    combinedorder_count_ -= 1;
-    if (doing_incomplete == true) {
-    combinedorder_count_incomplete_ -= 1;
-    }
-  }
-
 }
 
 void AriacCompetition::CeilRobotMoveHome() {
@@ -2544,7 +2329,6 @@ void AriacCompetition::CeilRobotChangeGripper(std::string gripper_type, std::str
 }
 
 bool AriacCompetition::CeilRobotPickBinPart(int part_clr,int part_type,geometry_msgs::msg::Pose part_pose,int part_quad){
-  bool found_part = false;
   std::string bin_side;
 
   if (part_quad < 37) {
@@ -2667,22 +2451,6 @@ bool AriacCompetition::CeilRobotPlacePartOnKitTray(int agv_num, int quadrant) {
                                   SetRobotOrientation(0)));
 
     CeilRobotMoveCartesian(waypoints, 0.4, 0.1,true);
-    // kittingorder_count_ -= 1;
-    // if (doing_incomplete == true) {
-    //     kittingorder_count_incomplete_ -= 1;
-    //   }
-    if (current_order.at(0).GetType() == ariac_msgs::msg::Order::KITTING) {
-        kittingorder_count_ -= 1;
-        if (doing_incomplete == true) {
-        kittingorder_count_incomplete_ -= 1;
-        }
-      }
-    else if (current_order.at(0).GetType() == ariac_msgs::msg::Order::COMBINED) {
-      combinedorder_count_ -= 1;
-      if (doing_incomplete == true) {
-      combinedorder_count_incomplete_ -= 1;
-      }
-    }
   }
 
   if(QualityCheck[5] || QualityCheck[11] || QualityCheck[17] || QualityCheck[23]){
