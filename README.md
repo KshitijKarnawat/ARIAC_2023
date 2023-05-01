@@ -49,22 +49,38 @@ ros2 run group3 group3
 ├─ CMakeLists.txt
 ├─ LICENSE.md
 ├─ README.md
+├─ config
+│  └─ group3_sensors.yaml   # Sensor YAML file for RWA3/RWA4
 ├─ document
 │  ├─ Activity_Diagram_v1.jpg
 │  ├─ Class_Diagram_v1.jpg
-│  └─ instructions.txt
+│  └─ Class_Diagram_v2.jpg  # Modified class diagram
+├─ etc
+│  ├─ instructions.txt
+│  ├─ rwa3.yaml             # Trial YAML file for RWA3
+│  └─ rwa4.yaml             # Trial YAML file for RWA4
 ├─ group3
-│  └─ __init__py
+│  └─ __init__.py
 ├─ include
 │  └─ group3
 │     ├─ ariac_competition.hpp
-│     ├─ ceiling_robot.hpp
-│     └─ floor_robot.hpp
+│     ├─ map_poses.hpp
+│     ├─ part_type_detect.hpp
+│     └─ tray_id_detect.hpp
+├─ launch
+├─ msg
+│  ├─ Part.msg
+│  └─ Parts.msg
 ├─ nodes
+│  ├─ .placeholder
+│  └─ part_detector.py      # To detect the Part using OpenCV
 ├─ package.xml
+├─ rviz
+│  └─ ariac.rviz
 └─ src
-    ├─ ariac_competition.cpp
-    ├─ ceiling_robot.cpp
-    └─ floor_robot.cpp
+   ├─ ariac_competition.cpp
+   ├─ map_poses.cpp
+   ├─ part_type_detect.cpp  
+   └─ tray_id_detect.cpp    # To detect the Tray ID using OpenCV
 
 ```
