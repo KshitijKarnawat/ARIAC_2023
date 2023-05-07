@@ -572,9 +572,10 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     if(type_color_key != -1){
       // 1 denotes part found in Bin
       keys.push_back({type_color_key, 1});
-    }else if(doing_priority = true) {
+    } else if(doing_priority = true && type_color_key== -1)  {
       if(partsonkittray.find(type_color) == partsonkittray.end()) {
         type_color_key = -1;
+        keys.push_back({type_color_key, 0});
       }
       else {
         type_color_key = type_color;
