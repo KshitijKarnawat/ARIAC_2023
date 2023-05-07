@@ -717,11 +717,12 @@ bool AriacCompetition::FloorRobotPickTrayPart(int part_clr, int part_type, geome
   //   FloorRobotSetGripperState(true);
   //   FloorRobotWaitForAttachonTray(3.0);
   // }
-  part_pose.position.z -= 0.05;
+  part_pose.position.z -= drop_height_ + 0.08;
   waypoints.push_back(part_pose);
   FloorRobotMoveCartesian(waypoints, 0.2, 0.1);
   FloorRobotSetGripperState(true);
   FloorRobotWaitForAttachonTray(100.0);
+  RCLCPP_INFO_STREAM(this->get_logger()," \n\nOut of attached part\n\n ");
 
   // Add part to planning scene
   std::string part_name = part_colors_[part_clr] + "_" + part_types_[part_type];
@@ -731,13 +732,19 @@ bool AriacCompetition::FloorRobotPickTrayPart(int part_clr, int part_type, geome
   part_to_pick.color = part_clr;
   part_to_pick.type = part_type;
   floor_robot_attached_part_ = part_to_pick;
-
+  
   // Move up slightly
   waypoints.clear();
-  waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
-                                part_pose.position.z + 0.3, SetRobotOrientation(0)));
+
+  geometry_msgs::msg::Pose starting_pose = floor_robot_->getCurrentPose().pose;
+  RCLCPP_INFO_STREAM(this->get_logger()," \n\n Got Current Pose \n\n ");
+  // waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
+  //                               part_pose.position.z + 0.5, SetRobotOrientation(0)));
+  waypoints.push_back(BuildPose(starting_pose.position.x, starting_pose.position.y,
+                                starting_pose.position.z + 0.3, SetRobotOrientation(0)));
 
   FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
+  RCLCPP_INFO_STREAM(this->get_logger()," \n\nMoved Up\n\n ");
   return true;
 }
 
