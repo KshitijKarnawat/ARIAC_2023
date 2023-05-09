@@ -489,6 +489,7 @@ bool AriacCompetition::process_order() {
         current_order.clear();
         current_order.push_back(incomplete_order[0]);
         incomplete_order.erase(incomplete_order.begin());
+        doing_priority = false;
         return true;
       }
       else {
@@ -502,6 +503,7 @@ bool AriacCompetition::process_order() {
         current_order.clear();
         current_order.push_back(incomplete_order[0]);
         incomplete_order.erase(incomplete_order.begin());
+        doing_priority = false;
         return true;
       }
       else {
@@ -572,7 +574,7 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
     if(type_color_key != -1){
       // 1 denotes part found in Bin
       keys.push_back({type_color_key, 1});
-    } else if(doing_priority = true && type_color_key== -1)  {
+    } else if(doing_priority = true && type_color_key== -1 && incomplete_order[0].GetType() == ariac_msgs::msg::Order::KITTING){
       if(partsonkittray.find(type_color) == partsonkittray.end()) {
         type_color_key = -1;
         keys.push_back({type_color_key, 0});
@@ -639,7 +641,7 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
           }
       }
       else if (i[1] == 2) {
-        FloorRobotPickTrayPart((i[0])%10,(i[0])/10, partsonkittray[i[0]]);
+        FloorRobotPickTrayPart((i[0])%10,(i[0])/10, partsonkittray[i[0]],incomplete_order[0].GetKitting().get()->GetAgvId());
         FloorRobotPlacePartOnKitTray(current_order[0].GetKitting().get()->GetAgvId(),current_order[0].GetKitting().get()->GetParts()[count][2]);
       }
       count++;
@@ -689,14 +691,14 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   return true;
 }
 
-bool AriacCompetition::FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose) {
+bool AriacCompetition::FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose, int agv_num) {
   
   if (floor_gripper_state_.type != "part_gripper")
       {
         FloorRobotChangeGripper("parts","kts2");
       }
   // Move to agv
-  //floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_["agv" + std::to_string(agv_num)]);
+  floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_["agv" + std::to_string(agv_num)]);
   floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
   FloorRobotMovetoTarget();
   std::vector<geometry_msgs::msg::Pose> waypoints;
@@ -776,6 +778,7 @@ bool AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
 bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
 
   bool is_pump; // Stores whether the part is a pump or not for conveyor belt
+  int type_color_key_replacement;  // Stores the key of the specific part in the bin map
 
   populate_bin_part();
   // Conveyor belt part detection and picking
@@ -812,9 +815,29 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   int station_num = current_order[0].GetCombined().get()->GetStation();
 
   if (station_num == ariac_msgs::msg::CombinedTask::AS1 or station_num == ariac_msgs::msg::CombinedTask::AS2) {
-    agv_num = 1;
+    if (std::find(available_agvs.begin(), available_agvs.end(), 1) != available_agvs.end()) {
+      agv_num = 1;
+    } else {
+      agv_num = 2;
+    }  
   } else {
-    agv_num = 4;
+    if (std::find(available_agvs.begin(), available_agvs.end(), 4) != available_agvs.end()) {
+      agv_num = 4;
+    } else {
+      agv_num = 3;
+    } 
+  }
+
+  if (doing_priority == false){
+    old_agv = agv_num;
+  }
+
+  int used_agv = agv_num;
+  if (available_agvs.size() > 0) {
+    available_agvs.erase(std::remove(available_agvs.begin(), available_agvs.end(), used_agv), available_agvs.end());
+  }
+  else {
+    RCLCPP_WARN_STREAM(this->get_logger(),"No more AGVs available!");
   }
 
   int tray_num = 0;
@@ -851,7 +874,16 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
     type_color_key = search_bin(type_color);
     if(type_color_key != -1){
       keys.push_back({type_color_key, 1});
-    }
+    }else if(doing_priority = true && type_color_key == -1)  {
+      if(partsonkittray.find(type_color) == partsonkittray.end()) {
+        type_color_key = -1;
+        keys.push_back({type_color_key, 0});
+      }
+      else {
+        type_color_key = type_color;
+        keys.push_back({type_color_key, 2});
+      }
+    } 
     for (auto i : keys){
       if (i[1] == 0) {
         continue;
@@ -861,19 +893,60 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
           // CeilRobotMoveHome();
           FloorRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]);
           FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+          if(traypartpose.position.x != -1000) {
+              partsonkittray[type_color] = traypartpose;
+          }
         } else {
           // FloorRobotMoveHome();
           CeilRobotPickBinPart((bin_map[i[0]].part_type_clr)%10,(bin_map[i[0]].part_type_clr)/10, bin_map[i[0]].part_pose, i[0]); 
           CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]);
         }
+        bin_map[i[0]].part_type_clr = -1;
+        if (dropped_parts_.size() != 0) {
+          for (auto part : keys){
+            bin_map[part[0]].part_type_clr = -1;
+          }
+          for (auto i : dropped_parts_) {
+            type_color_key_replacement = search_bin(i.type*10 + i.color);
+            if (type_color_key_replacement == -1) {
+              break;
+            }
+            if (FloorRobotReachableWorkspace(type_color_key_replacement)) {
+              CeilRobotMoveHome();
+              RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+              FloorRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
+              FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+              if(traypartpose.position.x != -1000) {
+                partsonkittray[type_color] = traypartpose;
+              }
+            } else {
+              FloorRobotMoveHome();
+              RCLCPP_INFO_STREAM(this->get_logger(),"Picking Replacement Part " << ConvertPartColorToString(i.color) << " " << ConvertPartTypeToString(i.type));
+              CeilRobotPickBinPart(i.color,i.type, bin_map[type_color_key_replacement].part_pose, type_color_key_replacement);
+              CeilRobotPlacePartOnKitTray(agv_num,quadrant[count]); 
+            }
+            bin_map[type_color_key_replacement].part_type_clr = -1;
+          }
+          dropped_parts_.clear();
+          populate_bin_part();
+        }
       } 
+      else if (i[1] == 2) {
+        if (incomplete_order[0].GetType() == ariac_msgs::msg::Order::KITTING){
+          FloorRobotPickTrayPart((i[0])%10,(i[0])/10, partsonkittray[i[0]],incomplete_order[0].GetKitting().get()->GetAgvId());
+        }
+        else {
+          FloorRobotPickTrayPart((i[0])%10,(i[0])/10, partsonkittray[i[0]],old_agv);
+        }
+        FloorRobotPlacePartOnKitTray(agv_num,quadrant[count]);
+      }
       count++;
     }
     keys.clear();
   }
 
   int Dest;
-  if (agv_num == 2 or agv_num == 3) {
+  if (station_num == 1 or station_num == 3) {
     Dest = ariac_msgs::msg::KittingTask::ASSEMBLY_FRONT;
   } else {
     Dest = ariac_msgs::msg::KittingTask::ASSEMBLY_BACK;
@@ -1967,7 +2040,7 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
     floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_["agv" + std::to_string(agv_num)]);
     floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
     FloorRobotMovetoTarget();
-    traypartpose =BuildPose(-1000,0,0,SetRobotOrientation(0));
+    traypartpose = BuildPose(-1000,0,0,SetRobotOrientation(0));
   } else {
 
     // Check if flipped
@@ -2714,7 +2787,7 @@ bool AriacCompetition::CeilRobotPickAGVPart(ariac_msgs::msg::PartPose part)
 
   // Move up slightly
   auto current_pose = ceil_robot_->getCurrentPose().pose;
-  current_pose.position.z += 0.5;
+  current_pose.position.z += 0.6;
   
   waypoints.clear();
   waypoints.push_back(current_pose);

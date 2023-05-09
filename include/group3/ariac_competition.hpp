@@ -131,6 +131,7 @@ class AriacCompetition : public rclcpp::Node {
         int conveyor_size;  // Number of parts spawning on the conveyor 
         bool high_priority_order_{false}; // Flag to check if there is a high priority order
         bool doing_priority = false;
+        int old_agv;   // AGV that was being used for Combined Order Low Priority
 
         std::vector<Orders> orders; // Vector of orders
         std::vector<Orders> incomplete_order; // Vector of incomplete orders
@@ -354,7 +355,7 @@ class AriacCompetition : public rclcpp::Node {
          */
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
         
-        bool FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose);
+        bool FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose, int agv_num);
 
         void FloorRobotWaitForAttachonTray(double timeout);
         /**
