@@ -460,10 +460,15 @@ bool AriacCompetition::process_order() {
       }
   } 
   else if (high_priority_order_ == true){
-    incomplete_order.push_back(current_order[0]);
-    current_order.clear();
-    current_order.push_back(orders.at(0));
-    orders.erase(orders.begin());
+    if (current_order.size() != 0) {
+      incomplete_order.push_back(current_order[0]);
+      current_order.clear();
+      current_order.push_back(orders.at(0));
+      orders.erase(orders.begin());
+    } else {
+      current_order.push_back(orders.at(0));
+      orders.erase(orders.begin());
+    }
     doing_priority = true;
     RCLCPP_INFO_STREAM(this->get_logger(), "====================================================");
     RCLCPP_INFO_STREAM(this->get_logger(), "Doing Task " <<  current_order[0].GetId() << " Priority: "  << std::to_string(current_order[0].IsPriority()));
@@ -473,8 +478,10 @@ bool AriacCompetition::process_order() {
       if (do_kitting(current_order) == true) {
         submit_order(current_order[0].GetId());
         current_order.clear();
-        current_order.push_back(incomplete_order[0]);
-        incomplete_order.erase(incomplete_order.begin());
+        if (incomplete_order.size() != 0) {
+          current_order.push_back(incomplete_order[0]);
+          incomplete_order.erase(incomplete_order.begin());
+        }
         doing_priority = false;
         return true;
       }
@@ -487,8 +494,10 @@ bool AriacCompetition::process_order() {
       if ( do_assembly(current_order) == true) {
         submit_order(current_order[0].GetId());
         current_order.clear();
-        current_order.push_back(incomplete_order[0]);
-        incomplete_order.erase(incomplete_order.begin());
+        if (incomplete_order.size() != 0) {
+          current_order.push_back(incomplete_order[0]);
+          incomplete_order.erase(incomplete_order.begin());
+        }
         doing_priority = false;
         return true;
       }
@@ -501,8 +510,10 @@ bool AriacCompetition::process_order() {
       if ( do_combined(current_order) == true) {
         submit_order(current_order[0].GetId());
         current_order.clear();
-        current_order.push_back(incomplete_order[0]);
-        incomplete_order.erase(incomplete_order.begin());
+        if (incomplete_order.size() != 0) {
+          current_order.push_back(incomplete_order[0]);
+          incomplete_order.erase(incomplete_order.begin());
+        }
         doing_priority = false;
         return true;
       }
@@ -687,91 +698,135 @@ bool AriacCompetition::do_kitting(std::vector<Orders> current_order) {
   FloorRobotMoveHome();
   CeilRobotMoveHome();
   partsonkittray.clear();
-  RCLCPP_INFO_STREAM(this->get_logger(),"Kitting order completed");
-  return true;
-}
-
-bool AriacCompetition::FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose, int agv_num) {
-  
-  if (floor_gripper_state_.type != "part_gripper")
-      {
-        FloorRobotChangeGripper("parts","kts2");
-      }
-  // Move to agv
-  floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_["agv" + std::to_string(agv_num)]);
-  floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
-  FloorRobotMovetoTarget();
-  std::vector<geometry_msgs::msg::Pose> waypoints;
-  // double part_rotation = GetYaw(part_pose);
-  // if (part_type == ariac_msgs::msg::Part::PUMP)
-  // {
-  //   waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
-  //                               part_pose.position.z + part_heights_[part_type], SetRobotOrientation(part_rotation)));
-  //   FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
-  //   FloorRobotSetGripperState(true);
-  // }
-  // else
-  // {
-  //   waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
-  //                                 part_pose.position.z + part_heights_[part_type] + pick_offset_, SetRobotOrientation(part_rotation)));
-
-  //   FloorRobotMoveCartesian(waypoints, 0.2, 0.1);
-  //   FloorRobotSetGripperState(true);
-  //   FloorRobotWaitForAttachonTray(3.0);
-  // }
-  part_pose.position.z -= drop_height_ + 0.08;
-  waypoints.push_back(part_pose);
-  FloorRobotMoveCartesian(waypoints, 0.2, 0.1);
-  FloorRobotSetGripperState(true);
-  FloorRobotWaitForAttachonTray(100.0);
-  RCLCPP_INFO_STREAM(this->get_logger()," \n\nOut of attached part\n\n ");
-
-  // Add part to planning scene
-  std::string part_name = part_colors_[part_clr] + "_" + part_types_[part_type];
-  AddModelToPlanningScene(part_name, part_types_[part_type] + ".stl", part_pose);
-  floor_robot_->attachObject(part_name);
-  ariac_msgs::msg::Part part_to_pick;
-  part_to_pick.color = part_clr;
-  part_to_pick.type = part_type;
-  floor_robot_attached_part_ = part_to_pick;
-  
-  // Move up slightly
-  waypoints.clear();
-
-  geometry_msgs::msg::Pose starting_pose = floor_robot_->getCurrentPose().pose;
-  RCLCPP_INFO_STREAM(this->get_logger()," \n\n Got Current Pose \n\n ");
-  // waypoints.push_back(BuildPose(part_pose.position.x, part_pose.position.y,
-  //                               part_pose.position.z + 0.5, SetRobotOrientation(0)));
-  waypoints.push_back(BuildPose(starting_pose.position.x, starting_pose.position.y,
-                                starting_pose.position.z + 0.3, SetRobotOrientation(0)));
-
-  FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
-  RCLCPP_INFO_STREAM(this->get_logger()," \n\nMoved Up\n\n ");
+  RCLCPP_INFO_STREAM(this->get_logger(),"Kitting Order Completed");
   return true;
 }
 
 bool AriacCompetition::do_assembly(std::vector<Orders>  current_order) {
-  std::string part_info;
-  
-  if (current_order[0].GetAssembly().get()->GetAgvNumbers().size() > 1) {
-    RCLCPP_INFO_STREAM(this->get_logger(),"Parts can be found on AGVs " << current_order[0].GetAssembly().get()->GetAgvNumbers()[0] << " and " << current_order[0].GetAssembly().get()->GetAgvNumbers()[1]);
-    // ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-    // move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-    // move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[1], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-  } else {
-    RCLCPP_INFO_STREAM(this->get_logger(),"Parts can be found on AGV " << current_order[0].GetAssembly().get()->GetAgvNumbers()[0]);
-    // ceil.MoveToAssemblyStation(ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
-    // move_agv(current_order[0].GetAssembly().get()->GetAgvNumbers()[0], ConvertAssemblyStationToString(current_order[0].GetAssembly().get()->GetStation()));
+
+  bool is_pump; // Stores whether the part is a pump or not for conveyor belt
+
+  populate_bin_part();
+  // Conveyor belt part detection and picking
+  while (conveyor_parts.size()!=0){
+    if (conveyor_size == conveyor_parts.size()){
+    floor_robot_->setJointValueTarget("linear_actuator_joint", -2.75);
+    floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 3.14);
+    floor_robot_->setJointValueTarget("floor_shoulder_lift_joint", -0.942478);
+    FloorRobotMovetoTarget();
+    FloorRobotMoveConveyorHome();
+    }
+    while(!breakbeam_status){
+      if (breakbeam2_status){
+        is_pump = true;
+        pump_rgb = conv_rgb_parts_;
+      }
+    }
+    if (breakbeam_status){
+      std::vector<geometry_msgs::msg::Pose> part_pose;
+      group3::msg::Part part_rgb;
+      part_pose = conv_parts_;
+      part_rgb = conv_rgb_parts_;
+      if (is_pump){
+        is_pump = false;
+        FloorRobotPickConvPart(part_pose, pump_rgb);
+      }
+      else {
+        FloorRobotPickConvPart(part_pose, part_rgb);
+      }
+    } 
+  }
+  int station_num = current_order[0].GetAssembly().get()->GetStation();
+
+  for (auto agv_num : current_order[0].GetAssembly().get()->GetAgvNumbers()) {
+    int destination;
+    if (station_num == ariac_msgs::msg::AssemblyTask::AS1 || station_num == ariac_msgs::msg::AssemblyTask::AS3)
+    {
+      destination = ariac_msgs::srv::MoveAGV::Request::ASSEMBLY_FRONT;
+    }
+    else if (station_num == ariac_msgs::msg::AssemblyTask::AS2 || station_num == ariac_msgs::msg::AssemblyTask::AS4)
+    {
+      destination = ariac_msgs::srv::MoveAGV::Request::ASSEMBLY_BACK;
+    }
+
+    lock_agv(agv_num);
+    move_agv(agv_num, destination);
+    unlock_agv(agv_num);
+    int used_agv = agv_num;
+    if (available_agvs.size() > 0) {
+        available_agvs.erase(std::remove(available_agvs.begin(), available_agvs.end(), used_agv), available_agvs.end());
+    }
+    else {
+        RCLCPP_WARN_STREAM(this->get_logger(),"No more AGVs available!");
+    }
   }
 
-  for (long unsigned int i = 0; i < current_order[0].GetAssembly().get()->GetParts().size(); i++){
-    part_info = ConvertPartColorToString(current_order[0].GetAssembly().get()->GetParts()[i].color) + " " + ConvertPartTypeToString(current_order[0].GetAssembly().get()->GetParts()[i].type);
-    RCLCPP_INFO_STREAM(this->get_logger(),"Located " << part_info);
-    // ceil.PickPartFromAGV(part_info);
-    // ceil.PlacePartInInsert(part_info);
+  CeilRobotMoveToAssemblyStation(station_num);
+  if (high_priority_order_){
+    process_order();
+    CeilRobotMoveToAssemblyStation(station_num);
   }
-  
-  // ceil.SendHome();
+
+  std::string srv_name = "/ariac/get_pre_assembly_poses";
+
+  std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("get_pre_assembly_poses");
+  rclcpp::Client<ariac_msgs::srv::GetPreAssemblyPoses>::SharedPtr pre_assembly_poses_getter_ = node->create_client<ariac_msgs::srv::GetPreAssemblyPoses>(srv_name);
+
+  auto request = std::make_shared<ariac_msgs::srv::GetPreAssemblyPoses::Request>();
+  request->order_id = current_order[0].GetId();
+
+  while (!pre_assembly_poses_getter_->wait_for_service(std::chrono::milliseconds(1000))) {
+    if (!rclcpp::ok()) {
+      RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(), "Service not available, waiting again...");
+  }
+
+  auto result = pre_assembly_poses_getter_->async_send_request(request);
+
+  if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_INFO_STREAM(this->get_logger(),"Pre Assembly Poses recieved");
+  } else {
+    RCLCPP_ERROR(this->get_logger(), "Failed to call service get_pre_assembly_poses");
+  }
+
+  std::vector<ariac_msgs::msg::PartPose> agv_part_poses; 
+  if (result.get()->valid_id) {
+    agv_part_poses = result.get()->parts;
+
+    if (agv_part_poses.size() == 0) {
+      RCLCPP_WARN(get_logger(), "No part poses recieved");
+    }
+  } else {
+    RCLCPP_WARN(get_logger(), "Not a valid order ID");
+  }
+
+  for (auto const &part_to_assemble : current_order[0].GetAssembly().get()->GetParts()) {
+    if (high_priority_order_){
+      process_order();
+      CeilRobotMoveToAssemblyStation(station_num);
+    }
+    ariac_msgs::msg::PartPose part_to_pick;
+    part_to_pick.part.type = part_to_assemble.type;
+    part_to_pick.part.color = part_to_assemble.color;
+    for (auto const &agv_part: agv_part_poses) {
+      if (agv_part.part.type == part_to_assemble.type && agv_part.part.color == part_to_assemble.color) {
+        part_to_pick.pose = agv_part.pose;
+        break;
+      }
+    }
+
+    // Pick up part
+    CeilRobotPickAGVPart(part_to_pick);
+
+    CeilRobotMoveToAssemblyStation(station_num);
+    
+    CeilRobotAssemblePart(station_num, part_to_assemble);
+
+    CeilRobotMoveToAssemblyStation(station_num);
+  }
+  CeilRobotMoveHome();
+  RCLCPP_INFO_STREAM(this->get_logger(),"Assembly Order Completed");
   return true;
 }
 
@@ -946,7 +1001,7 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
   }
 
   int Dest;
-  if (station_num == 1 or station_num == 3) {
+  if (station_num == ariac_msgs::msg::CombinedTask::AS1 or station_num == ariac_msgs::msg::CombinedTask::AS3) {
     Dest = ariac_msgs::msg::KittingTask::ASSEMBLY_FRONT;
   } else {
     Dest = ariac_msgs::msg::KittingTask::ASSEMBLY_BACK;
@@ -1013,12 +1068,15 @@ bool AriacCompetition::do_combined(std::vector<Orders>  current_order) {
 
     // Pick up part
     CeilRobotPickAGVPart(part_to_pick);
+
+    CeilRobotMoveToAssemblyStation(station_num);
     
     CeilRobotAssemblePart(station_num, part_to_assemble);
 
     CeilRobotMoveToAssemblyStation(station_num);
   }
   CeilRobotMoveHome();
+  RCLCPP_INFO_STREAM(this->get_logger(),"Combined Order Completed");
   return true;
 }
 
@@ -1645,30 +1703,6 @@ void AriacCompetition::FloorRobotWaitForAttach(double timeout){
   }
 }
 
-void AriacCompetition::FloorRobotWaitForAttachonTray(double timeout){
-  // Wait for part to be attached
-  rclcpp::Time start = now();
-  std::vector<geometry_msgs::msg::Pose> waypoints;
-  geometry_msgs::msg::Pose starting_pose = floor_robot_->getCurrentPose().pose;
-
-  while (!floor_gripper_state_.attached) {
-    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000, "Waiting for gripper attach");
-
-    waypoints.clear();
-    starting_pose.position.z -= 0.001;
-    waypoints.push_back(starting_pose);
-
-    FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
-
-    usleep(200);
-
-    if (now() - start > rclcpp::Duration::from_seconds(timeout)){
-      RCLCPP_ERROR(get_logger(), "Unable to pick up object");
-      return;
-    }
-  }
-}
-
 bool AriacCompetition::FloorRobotReachableWorkspace(int quadrant) {
   if (quadrant >= 19 && quadrant <= 24) {
     return false;
@@ -2062,6 +2096,46 @@ bool AriacCompetition::FloorRobotPlacePartOnKitTray(int agv_num, int quadrant) {
       FloorRobotMoveCartesian(waypoints, 0.4, 0.1);
     }
   }
+}
+
+bool AriacCompetition::FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose, int agv_num) {
+  
+  if (floor_gripper_state_.type != "part_gripper"){
+    if (agv_num == 1 or agv_num == 2)
+      FloorRobotChangeGripper("parts","kts2");
+    else
+    FloorRobotChangeGripper("parts","kts1");
+  }
+  // Move to agv
+  floor_robot_->setJointValueTarget("linear_actuator_joint", rail_positions_["agv" + std::to_string(agv_num)]);
+  floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 0);
+  FloorRobotMovetoTarget();
+  std::vector<geometry_msgs::msg::Pose> waypoints;
+
+  part_pose.position.z -= drop_height_ + 0.08;
+  waypoints.push_back(part_pose);
+  FloorRobotMoveCartesian(waypoints, 0.2, 0.1);
+  FloorRobotSetGripperState(true);
+  FloorRobotWaitForAttach(100.0);
+
+  // Add part to planning scene
+  std::string part_name = part_colors_[part_clr] + "_" + part_types_[part_type];
+  AddModelToPlanningScene(part_name, part_types_[part_type] + ".stl", part_pose);
+  floor_robot_->attachObject(part_name);
+  ariac_msgs::msg::Part part_to_pick;
+  part_to_pick.color = part_clr;
+  part_to_pick.type = part_type;
+  floor_robot_attached_part_ = part_to_pick;
+  
+  // Move up slightly
+  waypoints.clear();
+
+  geometry_msgs::msg::Pose starting_pose = floor_robot_->getCurrentPose().pose;
+  waypoints.push_back(BuildPose(starting_pose.position.x, starting_pose.position.y,
+                                starting_pose.position.z + 0.3, SetRobotOrientation(0)));
+
+  FloorRobotMoveCartesian(waypoints, 0.1, 0.1);
+  return true;
 }
 
 bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Pose> part_pose,group3::msg::Part conv_part){
@@ -2787,7 +2861,7 @@ bool AriacCompetition::CeilRobotPickAGVPart(ariac_msgs::msg::PartPose part)
 
   // Move up slightly
   auto current_pose = ceil_robot_->getCurrentPose().pose;
-  current_pose.position.z += 0.6;
+  current_pose.position.z += 0.2;
   
   waypoints.clear();
   waypoints.push_back(current_pose);

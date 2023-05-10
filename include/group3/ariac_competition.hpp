@@ -354,10 +354,19 @@ class AriacCompetition : public rclcpp::Node {
          * @param agv_num AGV number
          */
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
-        
+
+        /**
+         * @brief Method to make the Floor Robot pick and place the part on the AGV.
+         * 
+         * @param part_clr  Color of the part
+         * @param part_type  Type of the part
+         * @param part_pose  Desired pose of the part
+         * @param agv_num  AGV number
+         * @return true 
+         * @return false 
+         */
         bool FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose, int agv_num);
 
-        void FloorRobotWaitForAttachonTray(double timeout);
         /**
          * @brief Method to make the Floor Robot pick the part from the bin
          * 
