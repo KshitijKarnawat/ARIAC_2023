@@ -130,7 +130,8 @@ class AriacCompetition : public rclcpp::Node {
         bool competition_started_{false};   // Flag to check if competition is started
         int conveyor_size;  // Number of parts spawning on the conveyor 
         bool high_priority_order_{false}; // Flag to check if there is a high priority order
-
+        bool doing_priority = false;
+        int old_agv;   // AGV that was being used for Combined Order Low Priority
 
         std::vector<Orders> orders; // Vector of orders
         std::vector<Orders> incomplete_order; // Vector of incomplete orders
@@ -139,6 +140,8 @@ class AriacCompetition : public rclcpp::Node {
         std::vector<int> tray_aruco_id;     // Available Trays
         std::vector<int> available_agvs = {1, 2, 3, 4}; // Available AGVs
 
+        geometry_msgs::msg::Pose traypartpose; // AGV position
+        std::map<int, geometry_msgs::msg::Pose> partsonkittray; // Map of tray poses
         struct BinQuadrant {
             int part_type_clr = -1;
             geometry_msgs::msg::Pose part_pose;
@@ -351,7 +354,19 @@ class AriacCompetition : public rclcpp::Node {
          * @param agv_num AGV number
          */
         void FloorRobotPickandPlaceTray(int tray_idx, int agv_num);
-        
+
+        /**
+         * @brief Method to make the Floor Robot pick and place the part on the AGV.
+         * 
+         * @param part_clr  Color of the part
+         * @param part_type  Type of the part
+         * @param part_pose  Desired pose of the part
+         * @param agv_num  AGV number
+         * @return true 
+         * @return false 
+         */
+        bool FloorRobotPickTrayPart(int part_clr, int part_type, geometry_msgs::msg::Pose part_pose, int agv_num);
+
         /**
          * @brief Method to make the Floor Robot pick the part from the bin
          * 

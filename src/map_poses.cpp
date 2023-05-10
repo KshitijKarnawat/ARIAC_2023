@@ -442,7 +442,7 @@ std::map<int, geometry_msgs::msg::Pose> define_poses(){
     q57.orientation.w = 1.0;
 
     q58.position.x = -1.720001;
-    q58.position.y = -3.194999;
+    q58.position.y = -3.3750;
     q58.position.z = 0.723481;
     q58.orientation.x = 0.0;
     q58.orientation.y = 0.0;
