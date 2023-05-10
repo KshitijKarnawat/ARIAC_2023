@@ -242,6 +242,38 @@ void AriacCompetition::end_competition_timer_callback() {
   }
   else if(orders.empty() && current_order.empty() && incomplete_order.empty() && conveyor_parts_flag_){
     submit_orders_ = true;
+    bool is_pump; // Stores whether the part is a pump or not for conveyor belt
+
+    populate_bin_part();
+    // Conveyor belt part detection and picking
+    while (conveyor_parts.size()!=0){
+      if (conveyor_size == conveyor_parts.size()){
+      floor_robot_->setJointValueTarget("linear_actuator_joint", -2.75);
+      floor_robot_->setJointValueTarget("floor_shoulder_pan_joint", 3.14);
+      floor_robot_->setJointValueTarget("floor_shoulder_lift_joint", -0.942478);
+      FloorRobotMovetoTarget();
+      FloorRobotMoveConveyorHome();
+      }
+      while(!breakbeam_status){
+        if (breakbeam2_status){
+          is_pump = true;
+          pump_rgb = conv_rgb_parts_;
+        }
+      }
+      if (breakbeam_status){
+        std::vector<geometry_msgs::msg::Pose> part_pose;
+        group3::msg::Part part_rgb;
+        part_pose = conv_parts_;
+        part_rgb = conv_rgb_parts_;
+        if (is_pump){
+          is_pump = false;
+          FloorRobotPickConvPart(part_pose, pump_rgb);
+        }
+        else {
+          FloorRobotPickConvPart(part_pose, part_rgb);
+        }
+      } 
+    }
   }
 }
 
