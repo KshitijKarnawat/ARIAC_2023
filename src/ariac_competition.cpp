@@ -2208,7 +2208,7 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
 
   std::vector<geometry_msgs::msg::Pose> waypoints;
   geometry_msgs::msg::Pose starting_pose = floor_robot_->getCurrentPose().pose;
-  
+  part_pose_.position.z = 0.874994;
 
   if (part_type == ariac_msgs::msg::Part::REGULATOR){
     starting_pose.position.x = part_pose_.position.x;
@@ -2267,7 +2267,7 @@ bool AriacCompetition::FloorRobotPickConvPart(std::vector<geometry_msgs::msg::Po
 
     while (!breakbeam1_status){}
     
-    starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.0006;
+    starting_pose.position.z = part_pose_.position.z + part_heights_[part_type] + 0.00065;
     waypoints.push_back(starting_pose);
     FloorRobotSetGripperState(true);
     FloorRobotMoveCartesian(waypoints, 0.3, 0.3);
