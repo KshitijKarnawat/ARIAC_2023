@@ -839,10 +839,10 @@ class AriacCompetition : public rclcpp::Node {
 
         // Quadrant Offsets
         std::map<int, std::pair<double, double>> quad_offsets_ = {
-            {ariac_msgs::msg::KittingPart::QUADRANT1, std::pair<double, double>(-0.08, 0.12)},
-            {ariac_msgs::msg::KittingPart::QUADRANT2, std::pair<double, double>(0.08, 0.12)},
-            {ariac_msgs::msg::KittingPart::QUADRANT3, std::pair<double, double>(-0.08, -0.12)},
-            {ariac_msgs::msg::KittingPart::QUADRANT4, std::pair<double, double>(0.08, -0.12)},
+            {ariac_msgs::msg::KittingPart::QUADRANT1, std::pair<double, double>(-0.08, 0.11)},
+            {ariac_msgs::msg::KittingPart::QUADRANT2, std::pair<double, double>(0.08, 0.13)},
+            {ariac_msgs::msg::KittingPart::QUADRANT3, std::pair<double, double>(-0.08, -0.11)},
+            {ariac_msgs::msg::KittingPart::QUADRANT4, std::pair<double, double>(0.08, -0.13)},
         };
 
         std::map<std::string, double> rail_positions_ = {
